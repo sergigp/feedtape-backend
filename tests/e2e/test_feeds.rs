@@ -28,7 +28,36 @@ async fn it_should_create_a_new_feed() {
     response.assert_status(StatusCode::CREATED);
 
     let body = response.body.as_ref().unwrap();
-    helpers::assertions::assert_feed_response(body, "https://blog.example.com/rss", Some("Example Blog"));
+    let expected_title = Some("Example Blog");
+    let id = body.get("id").and_then(|v| v.as_str())
+        .expect("Missing id field");
+    let url = body.get("url").and_then(|v| v.as_str())
+        .expect("Missing url field");
+    let created_at = body.get("created_at")
+        .expect("Missing created_at field");
+
+    assert!(!id.is_empty(), "Feed ID should not be empty");
+    assert_eq!(url, "https://blog.example.com/rss", "Feed URL mismatch");
+
+    // Build expected structure
+    let mut expected = serde_json::json!({
+        "id": id,
+        "url": url,
+        "created_at": created_at
+    });
+
+    if let Some(title) = expected_title {
+        expected["title"] = serde_json::json!(title);
+        assert_eq!(
+            body.get("title").and_then(|v| v.as_str()),
+            Some(title),
+            "Feed title mismatch"
+        );
+    } else if let Some(title_val) = body.get("title") {
+        expected["title"] = title_val.clone();
+    }
+
+    assert_eq!(body, &expected, "Feed response structure mismatch");
 
     // Verify in database
     let feed_count = ctx.fixtures.get_feed_count(user.id).await.unwrap();
@@ -57,11 +86,22 @@ async fn it_should_create_feed_without_title() {
     response.assert_status(StatusCode::CREATED);
 
     let body = response.body.as_ref().unwrap();
-    assert!(body.get("id").is_some());
-    assert_eq!(body.get("url").and_then(|v| v.as_str()), Some("https://blog.example.com/rss"));
-    // Title should either be null or not present when not provided
-    let title = body.get("title");
-    assert!(title.is_none() || title.and_then(|v| v.as_null()).is_some());
+
+    // Assert complete feed response without title (title field is omitted when null)
+    let feed_id = body["id"].as_str().expect("Missing feed id");
+    let created_at = &body["created_at"];
+
+    assert_eq!(
+        body,
+        &json!({
+            "id": feed_id,
+            "url": "https://blog.example.com/rss",
+            "created_at": created_at
+        })
+    );
+
+    // Verify title is not present
+    assert!(body.get("title").is_none(), "Title should be omitted when not provided");
 }
 
 #[tokio::test]
@@ -83,13 +123,23 @@ async fn it_should_list_user_feeds() {
     response.assert_status(StatusCode::OK);
 
     let feeds = response.body.as_ref().unwrap().as_array().unwrap();
-    assert_eq!(feeds.len(), 3);
+    assert_eq!(feeds.len(), 3, "Should return 3 feeds");
 
-    // Verify feeds have expected structure
-    for feed in feeds {
-        assert!(feed.get("id").is_some());
-        assert!(feed.get("url").is_some());
-        assert!(feed.get("created_at").is_some());
+    // Verify each feed has complete structure
+    for (idx, feed) in feeds.iter().enumerate() {
+        let feed_id = feed["id"].as_str().expect(&format!("Feed {} missing id", idx));
+        let url = feed["url"].as_str().expect(&format!("Feed {} missing url", idx));
+        let created_at = &feed["created_at"];
+
+        assert!(!feed_id.is_empty(), "Feed ID should not be empty");
+        assert!(!url.is_empty(), "Feed URL should not be empty");
+        assert!(created_at.is_string(), "created_at should be a timestamp string");
+
+        // Verify feed matches expected structure (title is optional)
+        let expected_keys: Vec<&str> = feed.as_object().unwrap().keys().map(|s| s.as_str()).collect();
+        assert!(expected_keys.contains(&"id"), "Missing id field");
+        assert!(expected_keys.contains(&"url"), "Missing url field");
+        assert!(expected_keys.contains(&"created_at"), "Missing created_at field");
     }
 }
 
@@ -121,7 +171,17 @@ async fn it_should_update_feed_title() {
     response.assert_status(StatusCode::OK);
 
     let body = response.body.as_ref().unwrap();
-    assert_eq!(body.get("title").and_then(|v| v.as_str()), Some("New Title"));
+
+    // Assert complete updated feed response
+    assert_eq!(
+        body,
+        &json!({
+            "id": feed.id.to_string(),
+            "url": "https://blog.example.com/rss",
+            "title": "New Title",
+            "created_at": body["created_at"]
+        })
+    );
 }
 
 #[tokio::test]
@@ -212,14 +272,24 @@ async fn it_should_enforce_free_tier_feed_limit() {
         .assert_status(StatusCode::PAYMENT_REQUIRED)
         .assert_error_code("UPGRADE_REQUIRED");
 
-    // Details might not be included in the error response, so make this optional
+    // Assert complete error response with details
     let body = response.body.as_ref().unwrap();
-    if let Some(error) = body.get("error") {
-        if let Some(details) = error.get("details") {
-            assert_eq!(details.get("current").and_then(|v| v.as_i64()), Some(3));
-            assert_eq!(details.get("limit").and_then(|v| v.as_i64()), Some(3));
-        }
+    let error = &body["error"];
+
+    assert_eq!(error["code"], "UPGRADE_REQUIRED");
+    assert!(error["message"].is_string());
+
+    if let Some(details) = error.get("details") {
+        assert_eq!(
+            details,
+            &json!({
+                "current": 3,
+                "limit": 3
+            })
+        );
     }
+
+    assert!(body.get("request_id").is_some());
 }
 
 #[tokio::test]

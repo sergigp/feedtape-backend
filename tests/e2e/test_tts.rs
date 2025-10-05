@@ -319,18 +319,31 @@ async fn it_should_get_tts_usage_statistics() {
     response.assert_status(StatusCode::OK);
 
     let body = response.body.as_ref().unwrap();
-    assert_eq!(body.get("period").and_then(|v| v.as_str()), Some("daily"));
 
-    let usage = body.get("usage").unwrap();
-    assert_eq!(usage.get("characters").and_then(|v| v.as_i64()), Some(15000));
-    // The API calculates 1000 chars = 1 minute, so 15000 chars = 15 minutes
-    assert_eq!(usage.get("minutes").and_then(|v| v.as_f64()), Some(15.0));
+    // Assert complete usage response structure
+    assert_eq!(body["period"], "daily");
 
-    let limits = body.get("limits").unwrap();
-    assert!(limits.get("characters").is_some());
-    assert!(limits.get("minutes").is_some());
+    assert_eq!(
+        body["usage"],
+        json!({
+            "characters": 15000,
+            "minutes": 15.0,  // 1000 chars = 1 minute
+            "requests": body["usage"]["requests"]  // Request count varies
+        })
+    );
 
-    assert!(body.get("resets_at").is_some());
+    // Assert limits exist with expected fields
+    let limits = &body["limits"];
+    assert!(limits["characters"].is_number());
+    assert!(limits["minutes"].is_number());
+    assert!(limits.get("requests").is_some());
+
+    assert!(body["resets_at"].is_string());
+
+    // History may or may not be present depending on implementation
+    if let Some(history) = body.get("history") {
+        assert!(history.is_array());
+    }
 }
 
 #[tokio::test]

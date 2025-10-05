@@ -11,7 +11,6 @@ use tokio::net::TcpListener;
 use uuid::Uuid;
 
 pub mod api_client;
-pub mod assertions;
 pub mod aws_mocks;
 pub mod fixtures;
 
