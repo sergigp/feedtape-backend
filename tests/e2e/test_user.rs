@@ -208,7 +208,7 @@ async fn it_should_show_usage_statistics() {
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
     // Add some usage
-    ctx.fixtures.add_tts_usage(user.id, 5000, 2.5).await.unwrap();
+    ctx.fixtures.add_tts_usage(user.id, 5000, 2).await.unwrap();
 
     let response = ctx
         .client

@@ -160,7 +160,7 @@ async fn it_should_enforce_daily_usage_limits() {
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
     // Add usage near the limit for free tier (30000 characters)
-    ctx.fixtures.add_tts_usage(user.id, 29900, 19.9).await.unwrap();
+    ctx.fixtures.add_tts_usage(user.id, 29900, 20).await.unwrap();
 
     // Small request should succeed
     let response = ctx
@@ -209,7 +209,7 @@ async fn it_should_allow_higher_limits_for_pro_users() {
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
     // Add usage that would exceed free tier limit
-    ctx.fixtures.add_tts_usage(user.id, 35000, 25.0).await.unwrap();
+    ctx.fixtures.add_tts_usage(user.id, 35000, 25).await.unwrap();
 
     // Pro user should still be able to synthesize
     let response = ctx
@@ -288,7 +288,7 @@ async fn it_should_get_tts_usage_statistics() {
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
     // Add some usage
-    ctx.fixtures.add_tts_usage(user.id, 15000, 10.5).await.unwrap();
+    ctx.fixtures.add_tts_usage(user.id, 15000, 10).await.unwrap();
 
     let response = ctx
         .client
@@ -320,7 +320,7 @@ async fn it_should_track_usage_history() {
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
     // Add usage for multiple days (would need to manipulate dates in real scenario)
-    ctx.fixtures.add_tts_usage(user.id, 5000, 3.5).await.unwrap();
+    ctx.fixtures.add_tts_usage(user.id, 5000, 3).await.unwrap();
 
     let response = ctx
         .client
@@ -426,7 +426,7 @@ async fn it_should_include_usage_remaining_header() {
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
     // Add some usage
-    ctx.fixtures.add_tts_usage(user.id, 10000, 7.0).await.unwrap();
+    ctx.fixtures.add_tts_usage(user.id, 10000, 7).await.unwrap();
 
     let response = ctx
         .client

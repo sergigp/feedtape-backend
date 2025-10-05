@@ -1,0 +1,56 @@
+# .github/workflows/e2e.yml
+name: e2e
+
+on:
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      CI: "true"
+      # Give Testcontainers access to the runner's Docker
+      TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE: /var/run/docker.sock
+      DOCKER_HOST: unix:///var/run/docker.sock
+      RUST_BACKTRACE: "1"
+      RUST_LOG: info
+      # Uncomment if your tests are racy with too much parallelism
+      # RUST_TEST_THREADS: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+
+      - name: Cache build
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      # Optional: pre-pull images you use often to reduce flakiness
+      - name: Pre-pull common images (optional)
+        run: |
+          docker pull postgres:16 || true
+          docker pull redis:7 || true
+
+      # If you use nextest, keep this; otherwise remove the two nextest steps and use `cargo test`
+      - name: Install nextest (optional)
+        run: cargo install cargo-nextest || true
+
+      - name: Run E2E tests (nextest)
+        run: cargo nextest run --profile ci --all-features --run-ignored ignored-only
+        # or plain cargo:
+        # run: cargo test --all-features -- --include-ignored
+
+      # Optional: show docker state on failure
+      - name: Dump Docker state on failure
+        if: failure()
+        run: |
+          docker ps -a || true
+          docker logs $(docker ps -q) || true
