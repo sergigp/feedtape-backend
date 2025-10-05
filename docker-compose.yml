@@ -10,7 +10,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./migrations/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ./migrations/20250104000000_initial_schema.sql:/docker-entrypoint-initdb.d/schema.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U feedtape"]
       interval: 10s
