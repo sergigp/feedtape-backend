@@ -1,0 +1,460 @@
+# FeedTape Backend MVP Development Plan
+
+project:
+  name: FeedTape Backend
+  description: Minimal backend API for RSS to Audio service
+  tech_stack:
+    language: Rust
+    framework: Axum
+    database: PostgreSQL
+    auth: OAuth2 + JWT
+    tts: AWS Polly
+    testing: mockito, sqlx-test
+  architecture: Layered Architecture
+
+iterations:
+  - id: iteration_1
+    name: "Project Setup & Database Foundation"
+    duration: "2 days"
+    goals:
+      - Set up Rust project with Axum framework
+      - Configure Docker Compose for PostgreSQL
+      - Create database schema
+      - Set up environment configuration with direnv
+    tasks:
+      - task: "Initialize Rust project"
+        description: "Create Cargo.toml with all required dependencies"
+        deliverables:
+          - Cargo.toml with axum, tokio, sqlx, serde, etc.
+          - Basic project structure (src/main.rs, lib.rs)
+      - task: "Docker Compose setup"
+        description: "Create docker-compose.yml for PostgreSQL"
+        deliverables:
+          - docker-compose.yml with PostgreSQL 15
+          - .env.example file for configuration
+      - task: "Database schema"
+        description: "Create SQL schema for users, feeds, usage tracking"
+        deliverables:
+          - schema.sql with tables for users, feeds, usage_tracking, refresh_tokens
+          - Database connection pool setup in Rust
+      - task: "Environment configuration"
+        description: "Set up configuration management"
+        deliverables:
+          - .envrc file for direnv
+          - Config struct for app configuration
+          - Environment variable validation
+      - task: "Basic health endpoints"
+        description: "Implement /health and /health/ready endpoints"
+        deliverables:
+          - Health check route
+          - Database connectivity check
+    tests:
+      - "Health endpoint returns 200 OK"
+      - "Database connection pool initializes correctly"
+      - "Configuration loads from environment"
+
+  - id: iteration_2
+    name: "Core API Structure & Error Handling"
+    duration: "2 days"
+    goals:
+      - Implement layered architecture
+      - Set up error handling and logging
+      - Create API response structures
+      - Implement request/response middleware
+    tasks:
+      - task: "Layered architecture setup"
+        description: "Create handlers, services, repositories layers"
+        deliverables:
+          - src/handlers/ for HTTP handlers
+          - src/services/ for business logic
+          - src/repositories/ for database access
+          - src/models/ for domain models
+          - src/dto/ for request/response DTOs
+      - task: "Error handling"
+        description: "Implement custom error types and error middleware"
+        deliverables:
+          - Custom AppError type
+          - Error response formatting per OpenAPI spec
+          - Request ID generation and tracking
+      - task: "Logging setup"
+        description: "Configure structured logging with tracing"
+        deliverables:
+          - Tracing subscriber configuration
+          - Request/response logging middleware
+          - Environment-based log levels
+      - task: "API response structures"
+        description: "Create DTOs matching OpenAPI spec"
+        deliverables:
+          - Error response structure
+          - Pagination helpers
+          - JSON serialization setup
+    tests:
+      - "Error responses match OpenAPI spec format"
+      - "Request IDs are generated and tracked"
+      - "Logging outputs structured JSON in production"
+
+  - id: iteration_3
+    name: "OAuth2 Authentication - Apple Provider"
+    duration: "3 days"
+    goals:
+      - Implement Apple OAuth2 flow
+      - JWT token generation and validation
+      - User creation and management
+    tasks:
+      - task: "Apple OAuth integration"
+        description: "Implement Apple Sign In OAuth flow"
+        deliverables:
+          - OAuth state management
+          - Apple ID token validation
+          - User info extraction from Apple JWT
+      - task: "JWT implementation"
+        description: "Create JWT access and refresh tokens"
+        deliverables:
+          - JWT token generation with 1-hour expiry
+          - Refresh token generation with 30-day expiry
+          - Token validation middleware
+      - task: "User management"
+        description: "User creation and retrieval logic"
+        deliverables:
+          - User repository with CRUD operations
+          - User service for business logic
+          - Settings JSON field handling
+      - task: "Auth endpoints"
+        description: "Implement /auth/oauth/apple and /auth/callback/apple"
+        deliverables:
+          - OAuth initiation endpoint
+          - Callback handler
+          - Token response formatting
+      - task: "Auth middleware"
+        description: "Create authentication middleware for protected routes"
+        deliverables:
+          - Bearer token extraction
+          - User context injection
+          - Auth error responses
+    tests:
+      - "Mock Apple OAuth flow end-to-end"
+      - "JWT tokens are valid and contain correct claims"
+      - "Expired tokens are rejected"
+      - "User creation handles duplicate emails"
+
+  - id: iteration_4
+    name: "User Management & Settings"
+    duration: "2 days"
+    goals:
+      - Implement /api/me endpoint
+      - User settings management
+      - Subscription tier logic
+    tasks:
+      - task: "GET /api/me implementation"
+        description: "Return user info, settings, and subscription"
+        deliverables:
+          - User info aggregation
+          - Settings retrieval
+          - Subscription status calculation
+          - Usage stats retrieval
+      - task: "PATCH /api/me implementation"
+        description: "Update user settings"
+        deliverables:
+          - Settings validation
+          - Partial update logic
+          - JSON merge for settings
+      - task: "Subscription logic"
+        description: "Implement free trial and tier management"
+        deliverables:
+          - 7-day free trial tracking
+          - Tier limits enforcement
+          - Trial expiry calculation
+      - task: "Usage tracking foundation"
+        description: "Set up usage tracking structures"
+        deliverables:
+          - Usage tracking repository
+          - Daily/monthly aggregation logic
+          - Reset time calculations
+    tests:
+      - "User settings update correctly"
+      - "Free trial expires after 7 days"
+      - "Usage limits are calculated correctly"
+      - "Settings merge preserves existing values"
+
+  - id: iteration_5
+    name: "Feed Management CRUD"
+    duration: "2 days"
+    goals:
+      - Implement feeds endpoints
+      - Feed URL validation
+      - User feed limits enforcement
+    tasks:
+      - task: "Feed repository"
+        description: "Create database operations for feeds"
+        deliverables:
+          - Feed CRUD operations
+          - User association
+          - Unique URL per user constraint
+      - task: "GET /api/feeds"
+        description: "List user's feeds"
+        deliverables:
+          - Feed listing with pagination
+          - User filtering
+          - Response formatting
+      - task: "POST /api/feeds"
+        description: "Add new feed"
+        deliverables:
+          - URL validation
+          - Duplicate checking
+          - Feed limit enforcement (3 for free tier)
+      - task: "PUT/DELETE /api/feeds/{id}"
+        description: "Update and delete feeds"
+        deliverables:
+          - Feed ownership validation
+          - Title updates
+          - Cascade deletion handling
+    tests:
+      - "Feed URLs are validated"
+      - "Duplicate feeds are rejected"
+      - "Free users cannot add more than 3 feeds"
+      - "Users can only access their own feeds"
+
+  - id: iteration_6
+    name: "TTS Integration with AWS Polly"
+    duration: "3 days"
+    goals:
+      - Integrate AWS Polly SDK
+      - Implement text-to-speech conversion
+      - Usage tracking for TTS
+    tasks:
+      - task: "AWS Polly setup"
+        description: "Configure AWS SDK and Polly client"
+        deliverables:
+          - AWS SDK integration
+          - Polly client configuration
+          - Voice mapping for languages
+      - task: "Language detection"
+        description: "Implement auto language detection with lingua-rs"
+        deliverables:
+          - Lingua-rs integration
+          - Language detection service
+          - Fallback to Spanish
+      - task: "POST /api/tts/synthesize"
+        description: "Main TTS endpoint implementation"
+        deliverables:
+          - Text validation (max 10000 chars)
+          - Voice selection logic
+          - Audio streaming response
+          - Response headers (duration, character count)
+      - task: "Usage tracking"
+        description: "Track character usage per request"
+        deliverables:
+          - Character counting
+          - Usage update in database
+          - Daily/monthly aggregation
+          - Quota enforcement
+      - task: "Voice configuration"
+        description: "Set up voice mapping for 6 languages"
+        deliverables:
+          - Voice selection per language
+          - Male/female voice options
+          - Neural vs standard quality
+    tests:
+      - "Mock Polly returns audio data"
+      - "Language detection works for supported languages"
+      - "Usage is tracked correctly"
+      - "Quota exceeded returns 402 error"
+      - "Large texts are rejected"
+
+  - id: iteration_7
+    name: "Additional OAuth Providers"
+    duration: "2 days"
+    goals:
+      - Add Google OAuth support
+      - Add GitHub OAuth support
+      - Refactor OAuth to be provider-agnostic
+    tasks:
+      - task: "OAuth abstraction"
+        description: "Create provider trait for OAuth"
+        deliverables:
+          - OAuthProvider trait
+          - Provider factory
+          - Shared OAuth logic
+      - task: "Google OAuth"
+        description: "Implement Google Sign In"
+        deliverables:
+          - Google OAuth flow
+          - Google token validation
+          - User info extraction
+      - task: "GitHub OAuth"
+        description: "Implement GitHub OAuth"
+        deliverables:
+          - GitHub OAuth flow
+          - GitHub API integration
+          - User email retrieval
+      - task: "Provider routing"
+        description: "Dynamic routing based on provider"
+        deliverables:
+          - Provider detection in routes
+          - Provider-specific configuration
+          - Error handling per provider
+    tests:
+      - "Google OAuth flow works end-to-end"
+      - "GitHub OAuth flow works end-to-end"
+      - "Users can link multiple providers"
+      - "Provider-specific errors are handled"
+
+  - id: iteration_8
+    name: "Token Management & Refresh"
+    duration: "1 day"
+    goals:
+      - Implement token refresh endpoint
+      - Add logout functionality
+      - Token revocation logic
+    tasks:
+      - task: "POST /auth/refresh"
+        description: "Refresh access token"
+        deliverables:
+          - Refresh token validation
+          - New access token generation
+          - Refresh token rotation (optional)
+      - task: "POST /auth/logout"
+        description: "Logout and invalidate tokens"
+        deliverables:
+          - Refresh token deletion
+          - Token blacklist (optional)
+          - Response formatting
+      - task: "Token cleanup"
+        description: "Remove expired refresh tokens"
+        deliverables:
+          - Periodic cleanup task
+          - Database maintenance
+    tests:
+      - "Refresh tokens generate new access tokens"
+      - "Expired refresh tokens are rejected"
+      - "Logout invalidates refresh token"
+      - "Cleanup removes old tokens"
+
+  - id: iteration_9
+    name: "Subscription & Usage Management"
+    duration: "2 days"
+    goals:
+      - Implement subscription validation
+      - Usage statistics endpoint
+      - Apple receipt validation
+    tasks:
+      - task: "POST /api/subscription/validate-receipt"
+        description: "Validate Apple App Store receipts"
+        deliverables:
+          - Apple receipt verification
+          - Subscription status update
+          - Pro tier activation
+      - task: "GET /api/tts/usage"
+        description: "Usage statistics endpoint"
+        deliverables:
+          - Usage aggregation
+          - Historical data
+          - Limit calculations
+      - task: "Usage reset logic"
+        description: "Daily usage reset at midnight"
+        deliverables:
+          - Time zone handling
+          - Reset scheduling
+          - Usage archival
+      - task: "Subscription expiry"
+        description: "Handle subscription expiration"
+        deliverables:
+          - Expiry checking
+          - Tier downgrade logic
+          - Grace period handling
+    tests:
+      - "Mock Apple receipt validation"
+      - "Usage resets at midnight"
+      - "Expired subscriptions downgrade to free"
+      - "Usage history is preserved"
+
+  - id: iteration_10
+    name: "Testing, Documentation & Deployment Prep"
+    duration: "2 days"
+    goals:
+      - Comprehensive integration tests
+      - API documentation
+      - Performance optimization
+      - Deployment preparation
+    tasks:
+      - task: "Integration test suite"
+        description: "End-to-end API tests"
+        deliverables:
+          - Test database setup
+          - API client for tests
+          - Mock AWS services
+          - Full flow tests
+      - task: "Performance optimization"
+        description: "Optimize database queries and API responses"
+        deliverables:
+          - Query optimization
+          - Connection pooling tuning
+          - Response compression
+      - task: "Documentation"
+        description: "API and deployment documentation"
+        deliverables:
+          - README with setup instructions
+          - API usage examples
+          - Deployment guide
+          - Environment variable documentation
+      - task: "Railway preparation"
+        description: "Prepare for Railway deployment"
+        deliverables:
+          - Dockerfile for production
+          - Railway.toml configuration
+          - Health check configuration
+          - Migration scripts
+      - task: "Monitoring setup"
+        description: "Basic monitoring and alerting"
+        deliverables:
+          - Metrics endpoint
+          - Error tracking
+          - Uptime monitoring
+    tests:
+      - "Full OAuth flow with all providers"
+      - "Complete user journey from signup to TTS"
+      - "Load testing with concurrent users"
+      - "Database migration rollback"
+
+success_criteria:
+  - All OpenAPI endpoints implemented and tested
+  - OAuth working with Apple, Google, GitHub
+  - TTS integration with usage tracking
+  - Free/Pro tier logic enforced
+  - 80% test coverage minimum
+  - Response times under 200ms for non-TTS endpoints
+  - Docker Compose setup for local development
+  - Ready for Railway deployment
+
+dependencies:
+  external_services:
+    - name: "AWS Polly"
+      requirement: "AWS account with Polly access"
+      credentials: "AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY"
+    - name: "Apple Developer"
+      requirement: "Apple Developer account"
+      credentials: "APPLE_CLIENT_ID, APPLE_TEAM_ID, APPLE_KEY_ID"
+    - name: "Google OAuth"
+      requirement: "Google Cloud Console project"
+      credentials: "GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET"
+    - name: "GitHub OAuth"
+      requirement: "GitHub OAuth App"
+      credentials: "GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET"
+
+risks:
+  - description: "AWS Polly costs during testing"
+    mitigation: "Use mock services for most tests, limit real API calls"
+  - description: "OAuth provider changes"
+    mitigation: "Abstract OAuth logic, stay updated with provider docs"
+  - description: "Database performance with usage tracking"
+    mitigation: "Index properly, consider partitioning for usage data"
+
+notes:
+  - Each iteration includes tests as part of the deliverables
+  - Mock AWS services will be used for testing to avoid costs
+  - Database will use a single schema.sql file initially, no migrations
+  - Focus on simplicity for MVP, avoid over-engineering
+  - Logging will be verbose in development mode
+  - Character to minute ratio: 1000 characters = 1 minute of audio
+  - Free tier: 20,000 characters/day for 7 days, then requires Pro
+  - Pro tier: 200,000 characters/day
