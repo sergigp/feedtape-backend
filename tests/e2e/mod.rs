@@ -11,5 +11,6 @@ mod helpers;
 mod test_auth;
 mod test_feeds;
 mod test_health;
+mod test_oauth;
 mod test_tts;
 mod test_user;

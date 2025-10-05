@@ -5,7 +5,7 @@ use tower_http::trace::TraceLayer;
 use crate::infrastructure::config::Config;
 use crate::infrastructure::db::DbPool;
 use crate::{
-    controllers::{auth::AuthController, feed::FeedController, health, tts::TtsController, user::UserController},
+    controllers::{auth::AuthController, feed::FeedController, health, oauth::OAuthController, tts::TtsController, user::UserController},
     infrastructure::auth::{auth_middleware, request_id_middleware},
 };
 
@@ -17,6 +17,7 @@ pub async fn start_http_server(
     config: Arc<Config>,
     user_repo: Arc<UserRepository>,
     auth_controller: Arc<AuthController>,
+    oauth_controller: Arc<OAuthController>,
     feed_controller: Arc<FeedController>,
     user_controller: Arc<UserController>,
     tts_controller: Arc<TtsController>,
@@ -44,6 +45,12 @@ pub async fn start_http_server(
         .route("/auth/refresh", axum::routing::post(AuthController::refresh))
         .route("/auth/logout", axum::routing::post(AuthController::logout))
         .with_state(auth_controller.clone());
+
+    // OAuth routes (public - no auth required)
+    let oauth_routes = Router::new()
+        .route("/auth/oauth/github", get(OAuthController::initiate_github))
+        .route("/auth/callback/github", get(OAuthController::github_callback))
+        .with_state(oauth_controller.clone());
 
     // Logout all requires auth
     let auth_protected_routes = Router::new()
@@ -82,6 +89,7 @@ pub async fn start_http_server(
         .route("/health/ready", get(health::health_ready))
         .with_state(pool.clone())
         .merge(auth_routes)
+        .merge(oauth_routes)
         .merge(auth_protected_routes)
         .merge(user_routes)
         .merge(feed_routes)

@@ -46,7 +46,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let refresh_token_repo = Arc::new(feedtape_backend::infrastructure::repositories::RefreshTokenRepository::new(pool.clone()));
     let usage_repo = Arc::new(feedtape_backend::infrastructure::repositories::UsageRepository::new(pool.clone()));
 
-    // 2. Instantiate services (inject repositories and clients)
+    // 2. Instantiate OAuth clients
+    tracing::info!("Instantiating OAuth clients...");
+    let github_oauth_client = Arc::new(feedtape_backend::infrastructure::oauth::GitHubOAuthClient::new(
+        config.github_client_id.clone(),
+        config.github_client_secret.clone(),
+        config.github_redirect_uri.clone(),
+    ));
+
+    // 3. Instantiate services (inject repositories and clients)
     tracing::info!("Instantiating services...");
     let auth_service = Arc::new(feedtape_backend::domain::auth::AuthService::new(
         user_repo.clone(),
@@ -67,9 +75,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         polly_client.clone(),
     ));
 
-    // 3. Instantiate controllers (inject services)
+    // 4. Instantiate controllers (inject services)
     tracing::info!("Instantiating controllers...");
-    let auth_controller = Arc::new(feedtape_backend::controllers::auth::AuthController::new(auth_service));
+    let auth_controller = Arc::new(feedtape_backend::controllers::auth::AuthController::new(auth_service.clone()));
+    let oauth_controller = Arc::new(feedtape_backend::controllers::oauth::OAuthController::new(
+        github_oauth_client,
+        user_repo.clone(),
+        auth_service,
+    ));
     let feed_controller = Arc::new(feedtape_backend::controllers::feed::FeedController::new(feed_service));
     let user_controller = Arc::new(feedtape_backend::controllers::user::UserController::new(user_service.clone()));
     let tts_controller = Arc::new(feedtape_backend::controllers::tts::TtsController::new(
@@ -79,7 +92,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ));
 
     // Start HTTP server with all routes
-    start_http_server(pool, config, user_repo, auth_controller, feed_controller, user_controller, tts_controller).await?;
+    start_http_server(pool, config, user_repo, auth_controller, oauth_controller, feed_controller, user_controller, tts_controller).await?;
 
     Ok(())
 }

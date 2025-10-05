@@ -231,60 +231,58 @@ components:
 
 paths:
   # Authentication endpoints
-  /auth/oauth/{provider}:
+  /auth/oauth/github:
     get:
-      summary: Initiate OAuth flow
+      summary: Initiate GitHub OAuth flow
       tags: [Authentication]
-      parameters:
-        - name: provider
-          in: path
-          required: true
-          schema:
-            type: string
-            enum: [apple, google, github]
-        - name: redirect_uri
-          in: query
-          schema:
-            type: string
-            format: uri
+      description: Redirects to GitHub for user authorization. After authorization, GitHub will redirect back to /auth/callback/github.
       responses:
         '302':
-          description: Redirect to OAuth provider
+          description: Redirect to GitHub OAuth authorization page
           headers:
             Location:
-              description: OAuth provider authorization URL
+              description: GitHub authorization URL
               schema:
                 type: string
+                example: https://github.com/login/oauth/authorize?client_id=...
 
-  /auth/callback/{provider}:
+  /auth/callback/github:
     get:
-      summary: OAuth callback
+      summary: GitHub OAuth callback
       tags: [Authentication]
+      description: Handles the OAuth callback from GitHub, exchanges the code for tokens, and creates/logs in the user.
       parameters:
-        - name: provider
-          in: path
-          required: true
-          schema:
-            type: string
-            enum: [apple, google, github]
         - name: code
           in: query
           required: true
+          description: Authorization code from GitHub
           schema:
             type: string
         - name: state
           in: query
+          required: false
+          description: State parameter for CSRF protection
           schema:
             type: string
       responses:
         '200':
-          description: Authentication successful
+          description: Authentication successful, user logged in
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
+              example:
+                token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                refresh_token: 550e8400-e29b-41d4-a716-446655440000
+                expires_in: 3600
+        '400':
+          description: Invalid request or missing email from GitHub
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '401':
-          description: Authentication failed
+          description: OAuth authentication failed
           content:
             application/json:
               schema:
@@ -321,13 +319,44 @@ paths:
 
   /auth/logout:
     post:
-      summary: Logout and invalidate tokens
+      summary: Logout and invalidate single refresh token
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '204':
+          description: Logout successful
+        '401':
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/logout/all:
+    post:
+      summary: Logout from all devices (invalidate all refresh tokens)
       tags: [Authentication]
       security:
         - bearerAuth: []
       responses:
         '204':
-          description: Logout successful
+          description: All sessions logged out
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   # User endpoint
   /api/me:
@@ -411,44 +440,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/MeResponse'
 
-  /api/subscription/validate-receipt:
-    post:
-      summary: Validate store receipt
-      tags: [User]
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - receipt_data
-                - store
-              properties:
-                receipt_data:
-                  type: string
-                  description: Base64 encoded receipt
-                store:
-                  type: string
-                  enum: [apple, google]
-      responses:
-        '200':
-          description: Receipt validated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  valid:
-                    type: boolean
-                  tier:
-                    type: string
-                    enum: [free, pro]
-                  expires_at:
-                    type: string
-                    format: date-time
 
   # Feed endpoints
   /api/feeds:
@@ -622,9 +613,8 @@ paths:
                 value:
                   text: "Article content here"
                   language: "en"
-                  voice_preferences:
-                    gender: "male"
-                    speed: 1.25
+                  voice: "Lucia"
+                  speed: 1.25
                   quality: "neural"
       responses:
         '200':
@@ -648,9 +638,6 @@ paths:
               schema:
                 type: integer
             X-Language-Detected:
-              schema:
-                type: string
-            X-Voice-Used:
               schema:
                 type: string
             X-Usage-Remaining:
@@ -781,9 +768,6 @@ paths:
                     type: string
                     example: "ready"
                   database:
-                    type: string
-                    example: "connected"
-                  cache:
                     type: string
                     example: "connected"
                   tts:

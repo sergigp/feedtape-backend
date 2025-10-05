@@ -62,6 +62,9 @@ impl TestContext {
             aws_region: "us-east-1".to_string(),
             environment: Environment::Development,
             log_format: LogFormat::Pretty,
+            github_client_id: "test_github_client_id".to_string(),
+            github_client_secret: "test_github_client_secret".to_string(),
+            github_redirect_uri: "http://localhost:8080/auth/callback/github".to_string(),
         };
 
         // Create app with mocked AWS
@@ -105,10 +108,11 @@ impl TestContext {
 async fn create_app_with_mocked_aws(config: Config, pool: PgPool) -> Result<Router> {
     use axum::{middleware, routing::get};
     use feedtape_backend::{
-        controllers::{auth::AuthController, feed::FeedController, health, tts::TtsController, user::UserController},
+        controllers::{auth::AuthController, feed::FeedController, health, oauth::OAuthController, tts::TtsController, user::UserController},
         domain::{auth::AuthService, feed::FeedService, tts::TtsService, user::UserService},
         infrastructure::{
             auth::{auth_middleware, request_id_middleware},
+            oauth::GitHubOAuthClient,
             repositories::{FeedRepository, RefreshTokenRepository, UsageRepository, UserRepository},
         },
     };
@@ -126,6 +130,13 @@ async fn create_app_with_mocked_aws(config: Config, pool: PgPool) -> Result<Rout
     let feed_repo = Arc::new(FeedRepository::new(pool.clone()));
     let refresh_token_repo = Arc::new(RefreshTokenRepository::new(pool.clone()));
     let usage_repo = Arc::new(UsageRepository::new(pool.clone()));
+
+    // Instantiate OAuth clients
+    let github_oauth_client = Arc::new(GitHubOAuthClient::new(
+        config.github_client_id.clone(),
+        config.github_client_secret.clone(),
+        config.github_redirect_uri.clone(),
+    ));
 
     // Instantiate services
     let auth_service = Arc::new(AuthService::new(
@@ -148,7 +159,12 @@ async fn create_app_with_mocked_aws(config: Config, pool: PgPool) -> Result<Rout
     ));
 
     // Instantiate controllers
-    let auth_controller = Arc::new(AuthController::new(auth_service));
+    let auth_controller = Arc::new(AuthController::new(auth_service.clone()));
+    let oauth_controller = Arc::new(OAuthController::new(
+        github_oauth_client,
+        user_repo.clone(),
+        auth_service,
+    ));
     let feed_controller = Arc::new(FeedController::new(feed_service));
     let user_controller = Arc::new(UserController::new(user_service.clone()));
     let tts_controller = Arc::new(TtsController::new(
@@ -180,6 +196,12 @@ async fn create_app_with_mocked_aws(config: Config, pool: PgPool) -> Result<Rout
         .route("/auth/refresh", axum::routing::post(AuthController::refresh))
         .route("/auth/logout", axum::routing::post(AuthController::logout))
         .with_state(auth_controller.clone());
+
+    // OAuth routes (public - no auth required)
+    let oauth_routes = Router::new()
+        .route("/auth/oauth/github", get(OAuthController::initiate_github))
+        .route("/auth/callback/github", get(OAuthController::github_callback))
+        .with_state(oauth_controller.clone());
 
     // Logout all requires auth
     let auth_protected_routes = Router::new()
@@ -218,6 +240,7 @@ async fn create_app_with_mocked_aws(config: Config, pool: PgPool) -> Result<Rout
         .route("/health/ready", get(health::health_ready))
         .with_state(pool.clone())
         .merge(auth_routes)
+        .merge(oauth_routes)
         .merge(auth_protected_routes)
         .merge(user_routes)
         .merge(feed_routes)
