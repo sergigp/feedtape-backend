@@ -3,7 +3,8 @@
     "allow": [
       "Bash(cargo check:*)",
       "Bash(cargo test:*)",
-      "Bash(./run_tests.sh:*)"
+      "Bash(./run_tests.sh:*)",
+      "Bash(docker:*)"
     ],
     "deny": [],
     "ask": []
