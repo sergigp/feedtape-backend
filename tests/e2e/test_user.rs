@@ -21,15 +21,27 @@ async fn it_should_get_current_user_info() {
     response.assert_status(StatusCode::OK);
 
     let body = response.body.as_ref().unwrap();
-    helpers::assertions::assert_user_response(body);
 
-    assert_eq!(body.get("email").and_then(|v| v.as_str()), Some("user@example.com"));
-    assert_eq!(body.get("id").and_then(|v| v.as_str()), Some(user.id.to_string().as_str()));
-
-    // Verify subscription details for free user
-    let subscription = body.get("subscription").unwrap();
-    assert_eq!(subscription.get("tier").and_then(|v| v.as_str()), Some("free"));
-    assert_eq!(subscription.get("status").and_then(|v| v.as_str()), Some("active"));
+    // Assert complete user response structure
+    assert_eq!(
+        body,
+        &json!({
+            "id": user.id.to_string(),
+            "email": "user@example.com",
+            "settings": {
+                "voice": body["settings"]["voice"],
+                "speed": body["settings"]["speed"],
+                "language": body["settings"]["language"],
+                "quality": body["settings"]["quality"]
+            },
+            "subscription": {
+                "tier": "free",
+                "status": "active",
+                "limits": body["subscription"]["limits"],
+                "usage": body["subscription"]["usage"]
+            }
+        })
+    );
 }
 
 #[tokio::test]
@@ -57,12 +69,17 @@ async fn it_should_update_user_settings() {
     response.assert_status(StatusCode::OK);
 
     let body = response.body.as_ref().unwrap();
-    let settings = body.get("settings").unwrap();
 
-    assert_eq!(settings.get("voice").and_then(|v| v.as_str()), Some("Sergio"));
-    assert_eq!(settings.get("speed").and_then(|v| v.as_f64()), Some(1.5));
-    assert_eq!(settings.get("language").and_then(|v| v.as_str()), Some("es"));
-    assert_eq!(settings.get("quality").and_then(|v| v.as_str()), Some("neural"));
+    // Assert updated settings in response
+    assert_eq!(
+        body["settings"],
+        json!({
+            "voice": "Sergio",
+            "speed": 1.5,
+            "language": "es",
+            "quality": "neural"
+        })
+    );
 
     // Verify settings persist
     let response = ctx
@@ -72,10 +89,17 @@ async fn it_should_update_user_settings() {
         .unwrap();
 
     let body = response.body.as_ref().unwrap();
-    let settings = body.get("settings").unwrap();
 
-    assert_eq!(settings.get("voice").and_then(|v| v.as_str()), Some("Sergio"));
-    assert_eq!(settings.get("speed").and_then(|v| v.as_f64()), Some(1.5));
+    // Verify persisted settings
+    assert_eq!(
+        body["settings"],
+        json!({
+            "voice": "Sergio",
+            "speed": 1.5,
+            "language": "es",
+            "quality": "neural"
+        })
+    );
 }
 
 #[tokio::test]
@@ -103,12 +127,17 @@ async fn it_should_update_partial_settings() {
     response.assert_status(StatusCode::OK);
 
     let body = response.body.as_ref().unwrap();
-    let settings = body.get("settings").unwrap();
 
-    assert_eq!(settings.get("voice").and_then(|v| v.as_str()), Some("Conchita"));
-    // Other settings should remain at defaults
-    assert_eq!(settings.get("speed").and_then(|v| v.as_f64()), Some(1.0));
-    assert_eq!(settings.get("language").and_then(|v| v.as_str()), Some("auto"));
+    // Assert partial update with defaults
+    assert_eq!(
+        body["settings"],
+        json!({
+            "voice": "Conchita",
+            "speed": 1.0,
+            "language": "auto",
+            "quality": body["settings"]["quality"]  // Quality remains at default
+        })
+    );
 }
 
 #[tokio::test]
@@ -186,18 +215,18 @@ async fn it_should_show_pro_user_subscription() {
     response.assert_status(StatusCode::OK);
 
     let body = response.body.as_ref().unwrap();
-    let subscription = body.get("subscription").unwrap();
 
-    assert_eq!(subscription.get("tier").and_then(|v| v.as_str()), Some("pro"));
-    assert_eq!(subscription.get("status").and_then(|v| v.as_str()), Some("active"));
+    // Assert pro subscription structure
+    let subscription = &body["subscription"];
+    assert_eq!(subscription["tier"], "pro");
+    assert_eq!(subscription["status"], "active");
     assert!(subscription.get("expires_at").is_some());
-    // Store field is not returned by the API (iOS-specific, not tracked in DB)
 
-    // Pro limits should be higher
-    let limits = subscription.get("limits").unwrap();
-    let max_feeds = limits.get("max_feeds").and_then(|v| v.as_i64()).unwrap();
-    assert!(max_feeds > 3);
-    assert_eq!(limits.get("voice_quality").and_then(|v| v.as_str()), Some("neural"));
+    // Assert pro limits
+    let limits = &subscription["limits"];
+    let max_feeds = limits["max_feeds"].as_i64().unwrap();
+    assert!(max_feeds > 3, "Pro tier should allow more than 3 feeds");
+    assert_eq!(limits["voice_quality"], "neural");
 }
 
 #[tokio::test]
@@ -219,16 +248,19 @@ async fn it_should_show_usage_statistics() {
     response.assert_status(StatusCode::OK);
 
     let body = response.body.as_ref().unwrap();
-    let subscription = body.get("subscription").unwrap();
 
-    if let Some(usage) = subscription.get("usage") {
-        assert_eq!(usage.get("characters_used_today").and_then(|v| v.as_i64()), Some(5000));
-        // API calculates 1000 characters = 1 minute, so 5000 characters = 5 minutes
-        assert_eq!(usage.get("minutes_used_today").and_then(|v| v.as_f64()), Some(5.0));
-        assert!(usage.get("characters_limit").is_some());
-        assert!(usage.get("minutes_limit").is_some());
-        assert!(usage.get("resets_at").is_some());
-    }
+    // Assert usage statistics in subscription
+    let usage = &body["subscription"]["usage"];
+    assert_eq!(
+        usage,
+        &json!({
+            "characters_used_today": 5000,
+            "minutes_used_today": 5.0,  // 1000 chars = 1 minute
+            "characters_limit": usage["characters_limit"],
+            "minutes_limit": usage["minutes_limit"],
+            "resets_at": usage["resets_at"]
+        })
+    );
 }
 
 #[tokio::test]

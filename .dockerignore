@@ -1,0 +1,33 @@
+# Git
+.git
+.gitignore
+
+# CI/CD
+.github
+
+# Build artifacts
+target/
+**/*.rs.bk
+
+# IDE
+.vscode/
+.idea/
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Development
+.env
+.env.example
+
+# Documentation
+*.md
+CLAUDE.md
+
+# Tests (not needed in production image)
+tests/
+
+# Other
+.DS_Store

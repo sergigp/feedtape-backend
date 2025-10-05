@@ -38,13 +38,30 @@ async fn it_should_refresh_access_token() {
     response.assert_status(StatusCode::OK);
 
     let body = response.body.as_ref().unwrap();
-    helpers::assertions::assert_token_response(body);
+    let new_token = body.get("token").and_then(|v| v.as_str())
+        .expect("Missing token field");
+    let new_refresh_token = body.get("refresh_token").and_then(|v| v.as_str())
+        .expect("Missing refresh_token field");
+    let expires_in = body.get("expires_in").and_then(|v| v.as_i64())
+        .expect("Missing expires_in field");
+
+    assert!(!new_token.is_empty(), "Token should not be empty");
+    assert!(!new_refresh_token.is_empty(), "Refresh token should not be empty");
+    assert!(expires_in > 0, "expires_in should be positive");
+
+    // Verify it matches expected structure
+    assert_eq!(
+        body,
+        &serde_json::json!({
+            "token": new_token,
+            "refresh_token": new_refresh_token,
+            "expires_in": expires_in
+        }),
+        "Token response structure mismatch"
+    );
 
     // New tokens should be different from the old one
-    let new_token = body.get("token").and_then(|v| v.as_str()).unwrap();
-    let new_refresh = body.get("refresh_token").and_then(|v| v.as_str()).unwrap();
-
-    assert_ne!(new_refresh, refresh_token);
+    assert_ne!(new_refresh_token, refresh_token, "New refresh token should be different");
     assert!(!new_token.is_empty());
 }
 
@@ -272,7 +289,12 @@ async fn it_should_include_request_id_in_errors() {
     response.assert_status(StatusCode::UNAUTHORIZED);
 
     let body = response.body.as_ref().unwrap();
-    assert!(body.get("request_id").is_some());
+
+    // Assert complete error response structure
+    let error = &body["error"];
+    assert!(error["code"].is_string(), "Error should have code");
+    assert!(error["message"].is_string(), "Error should have message");
+    assert!(body["request_id"].is_string(), "Response should include request_id");
 }
 
 #[tokio::test]
