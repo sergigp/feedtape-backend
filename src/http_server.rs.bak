@@ -1,0 +1,88 @@
+use axum::{middleware, routing::get, Router};
+use aws_sdk_polly::Client as PollyClient;
+use std::sync::Arc;
+use tower_http::trace::TraceLayer;
+
+use crate::{
+    config::Config,
+    db::DbPool,
+    controllers::{auth, feed, health, tts, user},
+    middleware::{auth::auth_middleware, request_id::request_id_middleware},
+};
+
+/// Start the HTTP server with all routes configured
+pub async fn start_http_server(
+    pool: Arc<DbPool>,
+    config: Arc<Config>,
+    polly_client: Arc<PollyClient>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // TTS routes (need both pool and polly client)
+    let tts_routes = Router::new()
+        .route("/api/tts/synthesize", axum::routing::post(tts::synthesize))
+        .with_state((pool.clone(), polly_client.clone()))
+        .layer(middleware::from_fn_with_state(
+            (pool.clone(), config.clone()),
+            auth_middleware,
+        ));
+
+    // Usage route (needs auth)
+    let usage_routes = Router::new()
+        .route("/api/tts/usage", get(tts::get_usage))
+        .with_state(pool.clone())
+        .layer(middleware::from_fn_with_state(
+            (pool.clone(), config.clone()),
+            auth_middleware,
+        ));
+
+    // Auth routes (public - no auth required)
+    let auth_routes = Router::new()
+        .route("/auth/refresh", axum::routing::post(auth::refresh))
+        .route("/auth/logout", axum::routing::post(auth::logout))
+        .with_state((pool.clone(), config.clone()));
+
+    // Logout all requires auth
+    let auth_protected_routes = Router::new()
+        .route("/auth/logout/all", axum::routing::post(auth::logout_all))
+        .with_state((pool.clone(), config.clone()))
+        .layer(middleware::from_fn_with_state(
+            (pool.clone(), config.clone()),
+            auth_middleware,
+        ));
+
+    // Protected routes (require authentication)
+    let protected_routes = Router::new()
+        .route("/api/me", get(user::get_me).patch(user::update_me))
+        .route("/api/feeds", get(feed::list_feeds).post(feed::create_feed))
+        .route(
+            "/api/feeds/:feedId",
+            axum::routing::put(feed::update_feed).delete(feed::delete_feed),
+        )
+        .with_state(pool.clone())
+        .layer(middleware::from_fn_with_state(
+            (pool.clone(), config.clone()),
+            auth_middleware,
+        ));
+
+    // Build application routes
+    let app = Router::new()
+        .route("/health", get(health::health))
+        .route("/health/ready", get(health::health_ready))
+        .with_state(pool.clone())
+        .merge(auth_routes)
+        .merge(auth_protected_routes)
+        .merge(protected_routes)
+        .merge(tts_routes)
+        .merge(usage_routes)
+        .layer(middleware::from_fn(request_id_middleware))
+        .layer(TraceLayer::new_for_http());
+
+    // Start server
+    let listener = tokio::net::TcpListener::bind(format!("{}:{}", config.host, config.port))
+        .await?;
+
+    tracing::info!("Server listening on {}", listener.local_addr()?);
+
+    axum::serve(listener, app).await?;
+
+    Ok(())
+}
