@@ -5,7 +5,6 @@ feedtape.iml
 
 # Rust
 /target
-Cargo.lock
 
 # Environment
 .env
