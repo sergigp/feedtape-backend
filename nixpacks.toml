@@ -1,0 +1,2 @@
+[phases.setup]
+nixPkgs = ["rust-bin.stable.'1.86.0'.default"]
