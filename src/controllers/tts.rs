@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use crate::{
     domain::{
-        tts::{dto::TtsRequest, TtsService},
+        tts::{TtsService},
         user::UserService,
         shared::usage_dto::{DailyUsage, UsageLimits, UsageResponse, UsageStats},
     },
@@ -19,6 +19,7 @@ use crate::{
     },
 };
 use chrono::{Duration, Utc};
+use crate::domain::tts::TtsRequest;
 
 pub struct TtsController {
     tts_service: Arc<TtsService>,

@@ -2,11 +2,11 @@ use axum::{extract::State, http::StatusCode, Extension, Json};
 use std::sync::Arc;
 
 use crate::{
-    domain::auth::dto::{RefreshTokenRequest, TokenResponse},
     error::AppResult,
     infrastructure::auth::AuthUser,
     domain::auth::AuthService,
 };
+use crate::domain::auth::{RefreshTokenRequest, TokenResponse};
 
 pub struct AuthController {
     auth_service: Arc<AuthService>,

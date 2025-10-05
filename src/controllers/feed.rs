@@ -7,11 +7,11 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::{
-    domain::feed::dto::{CreateFeedRequest, FeedResponse, UpdateFeedRequest},
     error::AppResult,
     infrastructure::auth::AuthUser,
     domain::feed::FeedService,
 };
+use crate::domain::feed::{CreateFeedRequest, FeedResponse, UpdateFeedRequest};
 
 pub struct FeedController {
     feed_service: Arc<FeedService>,

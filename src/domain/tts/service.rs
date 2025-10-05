@@ -2,7 +2,7 @@ use crate::{
     error::{AppError, AppResult},
     infrastructure::repositories::{UsageRepository, UserRepository},
 };
-use super::{dto::TtsRequest, detect_language, get_voice_for_language};
+use super::{detect_language, get_voice_for_language, TtsRequest};
 use crate::domain::user::{SubscriptionTier, User};
 use aws_sdk_polly::{
     types::{Engine, OutputFormat, VoiceId},

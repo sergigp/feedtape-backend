@@ -2,10 +2,10 @@ use crate::{
     error::{AppError, AppResult},
     infrastructure::repositories::{FeedRepository, UserRepository},
 };
-use super::dto::{CreateFeedRequest, FeedResponse, UpdateFeedRequest};
 use crate::domain::user::SubscriptionTier;
 use uuid::Uuid;
 use std::sync::Arc;
+use crate::domain::feed::{CreateFeedRequest, FeedResponse, UpdateFeedRequest};
 
 pub struct FeedService {
     feed_repo: Arc<FeedRepository>,

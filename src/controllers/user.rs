@@ -2,11 +2,11 @@ use axum::{extract::State, Extension, Json};
 use std::sync::Arc;
 
 use crate::{
-    domain::user::dto::{MeResponse, UpdateMeRequest},
     error::AppResult,
     infrastructure::auth::AuthUser,
     domain::user::UserService,
 };
+use crate::domain::user::{MeResponse, UpdateMeRequest};
 
 pub struct UserController {
     user_service: Arc<UserService>,

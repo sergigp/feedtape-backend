@@ -2,7 +2,7 @@ use crate::{
     error::{AppError, AppResult},
     infrastructure::repositories::{RefreshTokenRepository, UserRepository},
 };
-use super::{dto::TokenResponse, generate_refresh_token, JwtManager};
+use super::{generate_refresh_token, JwtManager, TokenResponse};
 use uuid::Uuid;
 use crate::infrastructure::config::Config;
 use std::sync::Arc;

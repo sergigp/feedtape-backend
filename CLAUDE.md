@@ -74,7 +74,8 @@ The codebase follows a Domain-Driven Design with clear separation of concerns:
 ### Layer Structure
 - **`src/controllers/`** - HTTP request handlers that orchestrate service calls
 - **`src/domain/`** - Business logic organized by feature (auth, feed, tts, user)
-  - Each domain module contains: `service.rs`, `dto.rs`, `model.rs`
+  - Each domain module's `mod.rs` contains entities and domain objects
+  - `service.rs` contains business logic
 - **`src/infrastructure/`** - External integrations and implementations
   - `repositories/` - Database access layer using SQLx
   - `auth/` - JWT middleware and request ID tracking
@@ -85,8 +86,8 @@ The codebase follows a Domain-Driven Design with clear separation of concerns:
 ### Key Patterns
 1. **Repository Pattern**: All database operations go through repositories that return domain models
 2. **Service Layer**: Business logic lives in services that coordinate repositories and external clients
-3. **DTO Pattern**: Separate DTOs for API requests/responses vs domain models
-4. **Dependency Injection**: Dependencies are injected via Arc<> in main.rs startup
+3. **Domain Entities**: Entities and domain objects are defined in each module's `mod.rs` rather than separate DTO files
+4. **Dependency Injection**: Services receive only the specific config values they need (not the entire Config struct)
 
 ### Database Schema
 - Uses SQLx with compile-time query verification
@@ -132,7 +133,7 @@ The project uses `dotenvy` to load `.env` files in development.
 ## Common Development Tasks
 
 ### Adding a New API Endpoint
-1. Define DTOs in `src/domain/{feature}/dto.rs`
+1. Define entities and domain objects in `src/domain/{feature}/mod.rs`
 2. Implement business logic in `src/domain/{feature}/service.rs`
 3. Add repository methods if needed in `src/infrastructure/repositories/`
 4. Create handler in `src/controllers/{feature}.rs`
