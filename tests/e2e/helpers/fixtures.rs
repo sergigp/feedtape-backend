@@ -142,11 +142,12 @@ impl TestFixtures {
         user_id: Uuid,
         token: &str,
         expires_at: DateTime<Utc>,
+        revoked: bool,
     ) -> Result<()> {
         sqlx::query(
             r#"
-            INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, created_at)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO refresh_tokens (id, user_id, token, expires_at, created_at, revoked)
+            VALUES ($1, $2, $3, $4, $5, $6)
             "#,
         )
         .bind(Uuid::new_v4())
@@ -154,6 +155,7 @@ impl TestFixtures {
         .bind(token) // In real app this would be hashed
         .bind(expires_at)
         .bind(Utc::now())
+        .bind(revoked)
         .execute(&self.pool)
         .await?;
 

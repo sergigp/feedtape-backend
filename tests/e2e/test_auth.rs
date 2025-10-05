@@ -19,6 +19,7 @@ async fn it_should_refresh_access_token() {
             user.id,
             refresh_token,
             Utc::now() + chrono::Duration::days(30),
+            false, // Not revoked, should be valid
         )
         .await
         .unwrap();
@@ -81,6 +82,7 @@ async fn it_should_reject_expired_refresh_token() {
             user.id,
             refresh_token,
             Utc::now() - chrono::Duration::days(1), // Expired yesterday
+            false,
         )
         .await
         .unwrap();
@@ -113,12 +115,12 @@ async fn it_should_logout_single_session() {
     let refresh_token2 = "refresh_token_2";
 
     ctx.fixtures
-        .create_refresh_token(user.id, refresh_token1, Utc::now() + chrono::Duration::days(30))
+        .create_refresh_token(user.id, refresh_token1, Utc::now() + chrono::Duration::days(30), false)
         .await
         .unwrap();
 
     ctx.fixtures
-        .create_refresh_token(user.id, refresh_token2, Utc::now() + chrono::Duration::days(30))
+        .create_refresh_token(user.id, refresh_token2, Utc::now() + chrono::Duration::days(30), false)
         .await
         .unwrap();
 
@@ -177,12 +179,12 @@ async fn it_should_logout_all_sessions() {
     let refresh_token2 = "refresh_token_2";
 
     ctx.fixtures
-        .create_refresh_token(user.id, refresh_token1, Utc::now() + chrono::Duration::days(30))
+        .create_refresh_token(user.id, refresh_token1, Utc::now() + chrono::Duration::days(30), false)
         .await
         .unwrap();
 
     ctx.fixtures
-        .create_refresh_token(user.id, refresh_token2, Utc::now() + chrono::Duration::days(30))
+        .create_refresh_token(user.id, refresh_token2, Utc::now() + chrono::Duration::days(30), false)
         .await
         .unwrap();
 
@@ -350,7 +352,7 @@ async fn it_should_handle_concurrent_refresh_requests() {
 
     let refresh_token = "concurrent_refresh_token";
     ctx.fixtures
-        .create_refresh_token(user.id, refresh_token, Utc::now() + chrono::Duration::days(30))
+        .create_refresh_token(user.id, refresh_token, Utc::now() + chrono::Duration::days(30), false)
         .await
         .unwrap();
 
@@ -395,6 +397,7 @@ async fn it_should_clean_expired_tokens_on_refresh() {
                 user.id,
                 &format!("expired_token_{}", i),
                 Utc::now() - chrono::Duration::days(1),
+                false,
             )
             .await
             .unwrap();
@@ -403,7 +406,7 @@ async fn it_should_clean_expired_tokens_on_refresh() {
     // Create a valid token
     let valid_token = "valid_refresh_token";
     ctx.fixtures
-        .create_refresh_token(user.id, valid_token, Utc::now() + chrono::Duration::days(30))
+        .create_refresh_token(user.id, valid_token, Utc::now() + chrono::Duration::days(30), false)
         .await
         .unwrap();
 
