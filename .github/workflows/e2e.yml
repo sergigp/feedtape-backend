@@ -1,0 +1,43 @@
+name: e2e
+
+on:
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      CI: "true"
+      TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE: /var/run/docker.sock
+      DOCKER_HOST: unix:///var/run/docker.sock
+      RUST_BACKTRACE: "1"
+      RUST_LOG: info
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+
+      - name: Cache build
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Pre-pull images
+        run: |
+          docker pull postgres:16 || true
+
+      - name: Run E2E tests
+        run: cargo test --all-features -- --include-ignored
+
+      - name: Dump Docker state on failure
+        if: failure()
+        run: |
+          docker ps -a || true
+          docker logs $(docker ps -q) || true

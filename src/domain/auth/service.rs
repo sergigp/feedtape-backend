@@ -2,7 +2,7 @@ use crate::{
     error::{AppError, AppResult},
     infrastructure::repositories::{RefreshTokenRepository, UserRepository},
 };
-use super::{dto::TokenResponse, generate_refresh_token, JwtManager};
+use super::{generate_refresh_token, JwtManager, TokenResponse};
 use uuid::Uuid;
 use crate::infrastructure::config::Config;
 use std::sync::Arc;
@@ -31,10 +31,19 @@ impl AuthService {
         &self,
         refresh_token: &str,
     ) -> AppResult<TokenResponse> {
-        // Find and validate refresh token
+        // First check if token exists and its status
+        if let Some((revoked, is_expired)) = self.refresh_token_repo.check_token_status(refresh_token).await? {
+            if revoked || is_expired {
+                return Err(AppError::RefreshTokenExpired);
+            }
+        } else {
+            return Err(AppError::InvalidRefreshToken);
+        }
+
+        // Find and validate refresh token (this should now always succeed based on above check)
         let (user_id, _expires_at) = self.refresh_token_repo.find_valid(refresh_token)
             .await?
-            .ok_or_else(|| AppError::Unauthorized("Invalid or expired refresh token".to_string()))?;
+            .ok_or_else(|| AppError::InvalidRefreshToken)?;
 
         // Get user
         let user = self.user_repo.find_by_id(user_id)

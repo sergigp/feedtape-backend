@@ -96,7 +96,7 @@ impl TestContext {
     #[allow(dead_code)]
     pub async fn cleanup(&self) -> Result<()> {
         // Clean all tables
-        sqlx::query("TRUNCATE TABLE feeds, users, refresh_tokens, tts_usage CASCADE")
+        sqlx::query("TRUNCATE TABLE feeds, users, refresh_tokens, usage_tracking CASCADE")
             .execute(&self.pool)
             .await?;
         Ok(())
@@ -263,12 +263,18 @@ impl TestUser {
 
 // Helper to generate valid JWT tokens for testing
 pub fn generate_test_jwt(user_id: &Uuid, secret: &str) -> String {
+    generate_test_jwt_with_email(user_id, "test@example.com", secret)
+}
+
+// Helper to generate valid JWT tokens for testing with specific email
+pub fn generate_test_jwt_with_email(user_id: &Uuid, email: &str, secret: &str) -> String {
     use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
     use serde::Serialize;
 
     #[derive(Serialize)]
     struct Claims {
         sub: String,
+        email: String,
         exp: i64,
         iat: i64,
     }
@@ -276,6 +282,7 @@ pub fn generate_test_jwt(user_id: &Uuid, secret: &str) -> String {
     let now = chrono::Utc::now();
     let claims = Claims {
         sub: user_id.to_string(),
+        email: email.to_string(),
         exp: (now + chrono::Duration::hours(1)).timestamp(),
         iat: now.timestamp(),
     };

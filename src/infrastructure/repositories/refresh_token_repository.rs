@@ -64,6 +64,31 @@ impl RefreshTokenRepository {
         Ok(result)
     }
 
+    /// Check if a refresh token exists and get its status
+    pub async fn check_token_status(
+        &self,
+        token: &str,
+    ) -> AppResult<Option<(bool, bool)>> {
+        let pool = self.pool.as_ref();
+        let result = sqlx::query_as::<_, (bool, DateTime<Utc>)>(
+            r#"
+            SELECT revoked, expires_at
+            FROM refresh_tokens
+            WHERE token = $1
+            "#,
+        )
+        .bind(token)
+        .fetch_optional(pool)
+        .await?;
+
+        if let Some((revoked, expires_at)) = result {
+            let is_expired = expires_at <= Utc::now();
+            Ok(Some((revoked, is_expired)))
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Revoke a refresh token
     pub async fn revoke(&self, token: &str) -> AppResult<()> {
         let pool = self.pool.as_ref();

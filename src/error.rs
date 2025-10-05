@@ -14,6 +14,12 @@ pub enum AppError {
     #[error("Authentication failed: {0}")]
     Unauthorized(String),
 
+    #[error("Invalid refresh token")]
+    InvalidRefreshToken,
+
+    #[error("Refresh token expired")]
+    RefreshTokenExpired,
+
     #[error("Invalid input: {0}")]
     BadRequest(String),
 
@@ -60,7 +66,7 @@ impl AppError {
     /// Get the HTTP status code for this error
     pub fn status_code(&self) -> StatusCode {
         match self {
-            Self::Unauthorized(_) => StatusCode::UNAUTHORIZED,
+            Self::Unauthorized(_) | Self::InvalidRefreshToken | Self::RefreshTokenExpired => StatusCode::UNAUTHORIZED,
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
             Self::NotFound(_) => StatusCode::NOT_FOUND,
             Self::Conflict(_) => StatusCode::CONFLICT,
@@ -78,6 +84,8 @@ impl AppError {
         match self {
             Self::Database(_) => "DATABASE_ERROR",
             Self::Unauthorized(_) => "UNAUTHORIZED",
+            Self::InvalidRefreshToken => "INVALID_REFRESH_TOKEN",
+            Self::RefreshTokenExpired => "REFRESH_TOKEN_EXPIRED",
             Self::BadRequest(_) => "BAD_REQUEST",
             Self::NotFound(_) => "NOT_FOUND",
             Self::Conflict(_) => "CONFLICT",

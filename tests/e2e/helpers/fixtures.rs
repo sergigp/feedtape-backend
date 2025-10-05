@@ -142,11 +142,12 @@ impl TestFixtures {
         user_id: Uuid,
         token: &str,
         expires_at: DateTime<Utc>,
+        revoked: bool,
     ) -> Result<()> {
         sqlx::query(
             r#"
-            INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, created_at)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO refresh_tokens (id, user_id, token, expires_at, created_at, revoked)
+            VALUES ($1, $2, $3, $4, $5, $6)
             "#,
         )
         .bind(Uuid::new_v4())
@@ -154,28 +155,31 @@ impl TestFixtures {
         .bind(token) // In real app this would be hashed
         .bind(expires_at)
         .bind(Utc::now())
+        .bind(revoked)
         .execute(&self.pool)
         .await?;
 
         Ok(())
     }
 
-    pub async fn add_tts_usage(&self, user_id: Uuid, characters: i32, minutes: f64) -> Result<()> {
+    pub async fn add_tts_usage(&self, user_id: Uuid, characters: i32, articles: i32) -> Result<()> {
         sqlx::query(
             r#"
-            INSERT INTO tts_usage (id, user_id, characters_used, minutes_used, date, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO usage_tracking (id, user_id, characters_used, articles_synthesized, date, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             ON CONFLICT (user_id, date)
             DO UPDATE SET
-                characters_used = tts_usage.characters_used + EXCLUDED.characters_used,
-                minutes_used = tts_usage.minutes_used + EXCLUDED.minutes_used
+                characters_used = usage_tracking.characters_used + EXCLUDED.characters_used,
+                articles_synthesized = usage_tracking.articles_synthesized + EXCLUDED.articles_synthesized,
+                updated_at = EXCLUDED.updated_at
             "#,
         )
         .bind(Uuid::new_v4())
         .bind(user_id)
         .bind(characters)
-        .bind(minutes)
+        .bind(articles)
         .bind(Utc::now().date_naive())
+        .bind(Utc::now())
         .bind(Utc::now())
         .execute(&self.pool)
         .await?;

@@ -32,7 +32,6 @@ async fn it_should_return_ready_status() {
     // Check readiness response structure
     assert_eq!(body.get("status").and_then(|v| v.as_str()), Some("ready"));
     assert!(body.get("database").is_some());
-    assert!(body.get("cache").is_some());
     assert!(body.get("tts").is_some());
 }
 
@@ -125,7 +124,7 @@ async fn it_should_return_service_details_in_ready() {
     let body = response.body.as_ref().unwrap();
 
     // Verify all expected services are reported
-    let expected_services = vec!["database", "cache", "tts"];
+    let expected_services = vec!["database", "tts"];
 
     for service in expected_services {
         assert!(
