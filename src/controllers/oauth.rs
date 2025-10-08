@@ -1,6 +1,6 @@
 use axum::{
     extract::{Query, State},
-    response::{Html, IntoResponse, Redirect, Response},
+    response::{IntoResponse, Redirect, Response},
     Json,
 };
 use serde::Deserialize;
@@ -8,7 +8,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::{
-    domain::auth::{AuthService, TokenResponse},
+    domain::auth::AuthService,
     error::AppResult,
     infrastructure::{oauth::GitHubOAuthClient, repositories::UserRepository},
 };
@@ -22,94 +22,6 @@ pub struct InitiateOAuthParams {
 pub struct OAuthCallbackParams {
     pub code: String,
     pub state: String,
-}
-
-/// Generate HTML page that redirects to mobile app deep link
-fn generate_mobile_redirect_html(tokens: &TokenResponse) -> String {
-    format!(
-        r#"<!DOCTYPE html>
-<html>
-<head>
-  <title>Authentication Successful</title>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {{
-      font-family: system-ui, -apple-system, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      background: #f5f5f5;
-    }}
-    .container {{
-      text-align: center;
-      padding: 2rem;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }}
-    .success {{
-      font-size: 3rem;
-      margin-bottom: 1rem;
-    }}
-    h1 {{
-      color: #333;
-      margin-bottom: 0.5rem;
-    }}
-    p {{
-      color: #666;
-    }}
-    .spinner {{
-      border: 3px solid #f3f3f3;
-      border-top: 3px solid #333;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin: 1rem auto;
-    }}
-    @keyframes spin {{
-      0% {{ transform: rotate(0deg); }}
-      100% {{ transform: rotate(360deg); }}
-    }}
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="success">✓</div>
-    <h1>Authentication Successful!</h1>
-    <p>Redirecting you back to the app...</p>
-    <div class="spinner"></div>
-  </div>
-
-  <script>
-    // Try to redirect to the app
-    const deepLink = 'feedtape://auth/callback?' +
-      'token=' + encodeURIComponent('{token}') +
-      '&refresh_token=' + encodeURIComponent('{refresh_token}') +
-      '&expires_in={expires_in}';
-
-    // Attempt redirect
-    window.location.href = deepLink;
-
-    // Fallback: show manual close instruction after 2 seconds
-    setTimeout(() => {{
-      const container = document.querySelector('.container');
-      container.innerHTML = `
-        <div class="success">✓</div>
-        <h1>Authentication Complete</h1>
-        <p>You can now close this window and return to the app.</p>
-      `;
-    }}, 2000);
-  </script>
-</body>
-</html>"#,
-        token = tokens.token,
-        refresh_token = tokens.refresh_token,
-        expires_in = tokens.expires_in
-    )
 }
 
 pub struct OAuthController {
@@ -161,7 +73,7 @@ impl OAuthController {
     ///
     /// Returns either:
     /// - JSON with tokens (for web clients)
-    /// - HTML page with deep link redirect (for mobile clients)
+    /// - Redirect to deep link (for mobile clients)
     pub async fn github_callback(
         State(controller): State<Arc<OAuthController>>,
         Query(params): Query<OAuthCallbackParams>,
@@ -214,8 +126,14 @@ impl OAuthController {
 
         // Return appropriate response based on client type
         if is_mobile {
-            let html = generate_mobile_redirect_html(&tokens);
-            Ok(Html(html).into_response())
+            // Build deep link URL with tokens
+            let deep_link = format!(
+                "feedtape://auth/callback?token={}&refresh_token={}&expires_in={}",
+                urlencoding::encode(&tokens.token),
+                urlencoding::encode(&tokens.refresh_token),
+                tokens.expires_in
+            );
+            Ok(Redirect::temporary(&deep_link).into_response())
         } else {
             Ok(Json(tokens).into_response())
         }
