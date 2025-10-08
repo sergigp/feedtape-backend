@@ -66,28 +66,15 @@ impl TtsService {
             .map(String::from)
             .unwrap_or_else(|| detect_language(&request.text));
 
-        // Get voice settings
-        let quality = request
-            .quality
-            .as_deref()
-            .or_else(|| {
-                user.settings
-                    .get("quality")
-                    .and_then(|v| v.as_str())
-            })
-            .unwrap_or("standard");
+        // Determine quality based on subscription tier
+        // Pro users get neural voices, Free users get standard voices
+        let quality = match user.subscription_tier {
+            SubscriptionTier::Pro => "neural",
+            SubscriptionTier::Free => "standard",
+        };
 
-        // Check if user can use neural quality
-        if quality == "neural" && user.subscription_tier == SubscriptionTier::Free {
-            return Err(AppError::PaymentRequired(
-                "Neural voices require Pro subscription".to_string(),
-            ));
-        }
-
-        let voice = request
-            .voice
-            .as_deref()
-            .unwrap_or_else(|| get_voice_for_language(&language, quality));
+        // Select voice based on language and quality
+        let voice = get_voice_for_language(&language, quality);
 
         // Synthesize with Polly
         let audio_data = self.call_polly(&request.text, voice, quality).await?;

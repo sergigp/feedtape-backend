@@ -55,22 +55,19 @@ async fn it_should_use_custom_voice_settings() {
             &json!({
                 "text": "Este es un mensaje de prueba en español.",
                 "language": "es",
-                "voice": "Conchita",
-                "speed": 1.25,
-                "quality": "neural"
+                "speed": 1.25
             }),
             &token,
         )
         .await
         .unwrap();
 
-    // Test that endpoint accepts these parameters
+    // Test that endpoint accepts language and speed parameters
     // With mocked AWS, synthesis fails with 500, but we can still test validation
     assert!(
         response.status == StatusCode::OK ||
         response.status == StatusCode::SERVICE_UNAVAILABLE ||
-        response.status == StatusCode::INTERNAL_SERVER_ERROR || // AWS mock fails
-        response.status == StatusCode::PAYMENT_REQUIRED // Neural might require pro
+        response.status == StatusCode::INTERNAL_SERVER_ERROR // AWS mock fails
     );
 }
 
@@ -256,36 +253,33 @@ async fn it_should_require_pro_for_neural_voices() {
     let free_token = generate_test_jwt(&free_user.id, &ctx.config.jwt_secret);
     let pro_token = generate_test_jwt(&pro_user.id, &ctx.config.jwt_secret);
 
-    // Free user trying neural voice
+    // Free user gets standard voice automatically (backend handles this)
     let response = ctx
         .client
         .post_with_auth(
             "/api/tts/synthesize",
             &json!({
-                "text": "Testing neural voice",
-                "quality": "neural"
+                "text": "Testing voice quality"
             }),
             &free_token,
         )
         .await
         .unwrap();
 
-    // With mocked AWS, we might get 500 instead of proper error
-    if response.status != StatusCode::SERVICE_UNAVAILABLE &&
-       response.status != StatusCode::INTERNAL_SERVER_ERROR {
-        response
-            .assert_status(StatusCode::PAYMENT_REQUIRED)
-            .assert_error_message("Neural voices require Pro");
-    }
+    // With mocked AWS, synthesis fails with 500
+    assert!(
+        response.status == StatusCode::OK ||
+        response.status == StatusCode::SERVICE_UNAVAILABLE ||
+        response.status == StatusCode::INTERNAL_SERVER_ERROR // AWS mock fails
+    );
 
-    // Pro user should be able to use neural
+    // Pro user gets neural voice automatically (backend handles this)
     let response = ctx
         .client
         .post_with_auth(
             "/api/tts/synthesize",
             &json!({
-                "text": "Testing neural voice",
-                "quality": "neural"
+                "text": "Testing voice quality"
             }),
             &pro_token,
         )
