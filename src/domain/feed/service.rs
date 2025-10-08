@@ -34,7 +34,7 @@ impl FeedService {
         &self,
         user_id: Uuid,
         request: CreateFeedRequest,
-    ) -> AppResult<FeedResponse> {
+    ) -> AppResult<()> {
         // Get user to check subscription tier
         let user = self.user_repo.find_by_id(user_id)
             .await?
@@ -66,15 +66,16 @@ impl FeedService {
             )));
         }
 
-        // Create the feed
-        let feed = self.feed_repo.create(
+        // Create the feed with client-provided ID
+        self.feed_repo.create(
+            request.id,
             user_id,
             &request.url,
-            request.title.as_deref(),
+            &request.title,
         )
         .await?;
 
-        Ok(FeedResponse::from(feed))
+        Ok(())
     }
 
     /// Update a feed
@@ -83,7 +84,7 @@ impl FeedService {
         user_id: Uuid,
         feed_id: Uuid,
         request: UpdateFeedRequest,
-    ) -> AppResult<FeedResponse> {
+    ) -> AppResult<()> {
         // Get the feed and verify ownership
         let feed = self.feed_repo.find_by_id(feed_id)
             .await?
@@ -94,10 +95,9 @@ impl FeedService {
         }
 
         // Update the feed
-        let updated_feed =
-            self.feed_repo.update_title(feed_id, request.title.as_deref()).await?;
+        self.feed_repo.update_title(feed_id, request.title.as_deref()).await?;
 
-        Ok(FeedResponse::from(updated_feed))
+        Ok(())
     }
 
     /// Delete a feed

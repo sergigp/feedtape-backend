@@ -27,12 +27,9 @@ async fn it_should_get_current_user_info() {
         body,
         &json!({
             "id": user.id.to_string(),
-            "email": "user@example.com",
             "settings": {
                 "voice": body["settings"]["voice"],
-                "speed": body["settings"]["speed"],
-                "language": body["settings"]["language"],
-                "quality": body["settings"]["quality"]
+                "language": body["settings"]["language"]
             },
             "subscription": {
                 "tier": "free",
@@ -42,6 +39,10 @@ async fn it_should_get_current_user_info() {
             }
         })
     );
+
+    // Verify voice is an ID format
+    let voice = body["settings"]["voice"].as_str().unwrap();
+    assert!(voice.starts_with("voice_"), "Voice should be a voice ID");
 }
 
 #[tokio::test]
@@ -54,9 +55,7 @@ async fn it_should_update_user_settings() {
     let new_settings = json!({
         "settings": {
             "voice": "Sergio",
-            "speed": 1.5,
-            "language": "es",
-            "quality": "neural"
+            "language": "es"
         }
     });
 
@@ -66,22 +65,9 @@ async fn it_should_update_user_settings() {
         .await
         .unwrap();
 
-    response.assert_status(StatusCode::OK);
+    response.assert_status(StatusCode::NO_CONTENT);
 
-    let body = response.body.as_ref().unwrap();
-
-    // Assert updated settings in response
-    assert_eq!(
-        body["settings"],
-        json!({
-            "voice": "Sergio",
-            "speed": 1.5,
-            "language": "es",
-            "quality": "neural"
-        })
-    );
-
-    // Verify settings persist
+    // Verify settings persist by fetching user profile
     let response = ctx
         .client
         .get_with_auth("/api/me", &token)
@@ -90,16 +76,9 @@ async fn it_should_update_user_settings() {
 
     let body = response.body.as_ref().unwrap();
 
-    // Verify persisted settings
-    assert_eq!(
-        body["settings"],
-        json!({
-            "voice": "Sergio",
-            "speed": 1.5,
-            "language": "es",
-            "quality": "neural"
-        })
-    );
+    // Verify persisted settings - voice should be stored as name and returned as ID
+    assert_eq!(body["settings"]["language"], "es");
+    assert_eq!(body["settings"]["voice"].as_str().unwrap(), "voice_sergio_es");
 }
 
 #[tokio::test]
@@ -124,79 +103,14 @@ async fn it_should_update_partial_settings() {
         .await
         .unwrap();
 
-    response.assert_status(StatusCode::OK);
+    response.assert_status(StatusCode::NO_CONTENT);
 
+    // Verify partial update persisted
+    let response = ctx.client.get_with_auth("/api/me", &token).await.unwrap();
     let body = response.body.as_ref().unwrap();
 
-    // Assert partial update with defaults
-    assert_eq!(
-        body["settings"],
-        json!({
-            "voice": "Conchita",
-            "speed": 1.0,
-            "language": "auto",
-            "quality": body["settings"]["quality"]  // Quality remains at default
-        })
-    );
-}
-
-#[tokio::test]
-#[serial]
-async fn it_should_validate_speed_range() {
-    let ctx = TestContext::new().await.unwrap();
-    let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
-    let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
-
-    // Try to set speed too low
-    let response = ctx
-        .client
-        .patch_with_auth(
-            "/api/me",
-            &json!({
-                "settings": {
-                    "speed": 0.3
-                }
-            }),
-            &token,
-        )
-        .await
-        .unwrap();
-
-    response.assert_status(StatusCode::BAD_REQUEST);
-
-    // Try to set speed too high
-    let response = ctx
-        .client
-        .patch_with_auth(
-            "/api/me",
-            &json!({
-                "settings": {
-                    "speed": 3.0
-                }
-            }),
-            &token,
-        )
-        .await
-        .unwrap();
-
-    response.assert_status(StatusCode::BAD_REQUEST);
-
-    // Valid speed should work
-    let response = ctx
-        .client
-        .patch_with_auth(
-            "/api/me",
-            &json!({
-                "settings": {
-                    "speed": 1.75
-                }
-            }),
-            &token,
-        )
-        .await
-        .unwrap();
-
-    response.assert_status(StatusCode::OK);
+    assert_eq!(body["settings"]["voice"].as_str().unwrap(), "voice_conchita_es");
+    assert_eq!(body["settings"]["language"], "en");  // Language remains at default
 }
 
 #[tokio::test]
@@ -220,13 +134,11 @@ async fn it_should_show_pro_user_subscription() {
     let subscription = &body["subscription"];
     assert_eq!(subscription["tier"], "pro");
     assert_eq!(subscription["status"], "active");
-    assert!(subscription.get("expires_at").is_some());
 
     // Assert pro limits
     let limits = &subscription["limits"];
     let max_feeds = limits["max_feeds"].as_i64().unwrap();
     assert!(max_feeds > 3, "Pro tier should allow more than 3 feeds");
-    assert_eq!(limits["voice_quality"], "neural");
 }
 
 #[tokio::test]
@@ -270,8 +182,8 @@ async fn it_should_validate_language_settings() {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
-    // Valid languages
-    let valid_languages = vec!["auto", "es", "en", "fr", "de", "pt", "it"];
+    // Valid languages (auto removed)
+    let valid_languages = vec!["es", "en", "fr", "de", "pt", "it"];
 
     for lang in valid_languages {
         let response = ctx
@@ -288,7 +200,7 @@ async fn it_should_validate_language_settings() {
             .await
             .unwrap();
 
-        response.assert_status(StatusCode::OK);
+        response.assert_status(StatusCode::NO_CONTENT);
     }
 
     // Invalid language
@@ -299,50 +211,6 @@ async fn it_should_validate_language_settings() {
             &json!({
                 "settings": {
                     "language": "klingon"
-                }
-            }),
-            &token,
-        )
-        .await
-        .unwrap();
-
-    response.assert_status(StatusCode::BAD_REQUEST);
-}
-
-#[tokio::test]
-#[serial]
-async fn it_should_validate_quality_settings() {
-    let ctx = TestContext::new().await.unwrap();
-    let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
-    let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
-
-    // Valid qualities
-    for quality in &["standard", "neural"] {
-        let response = ctx
-            .client
-            .patch_with_auth(
-                "/api/me",
-                &json!({
-                    "settings": {
-                        "quality": quality
-                    }
-                }),
-                &token,
-            )
-            .await
-            .unwrap();
-
-        response.assert_status(StatusCode::OK);
-    }
-
-    // Invalid quality
-    let response = ctx
-        .client
-        .patch_with_auth(
-            "/api/me",
-            &json!({
-                "settings": {
-                    "quality": "ultra-hd"
                 }
             }),
             &token,

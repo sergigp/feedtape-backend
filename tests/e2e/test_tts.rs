@@ -155,7 +155,7 @@ async fn it_should_enforce_text_length_limits() {
 
     response
         .assert_status(StatusCode::PAYLOAD_TOO_LARGE)
-        .assert_error_code("PAYLOAD_TOO_LARGE");
+        .assert_error_message("Text too large");
 }
 
 #[tokio::test]
@@ -211,7 +211,7 @@ async fn it_should_enforce_daily_usage_limits() {
        response.status != StatusCode::INTERNAL_SERVER_ERROR {
         response
             .assert_status(StatusCode::PAYMENT_REQUIRED)
-            .assert_error_code("UPGRADE_REQUIRED");
+            .assert_error_message("limit exceeded");
     }
 }
 
@@ -275,7 +275,7 @@ async fn it_should_require_pro_for_neural_voices() {
        response.status != StatusCode::INTERNAL_SERVER_ERROR {
         response
             .assert_status(StatusCode::PAYMENT_REQUIRED)
-            .assert_error_code("UPGRADE_REQUIRED");
+            .assert_error_message("Neural voices require Pro");
     }
 
     // Pro user should be able to use neural

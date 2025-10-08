@@ -63,18 +63,14 @@ impl std::fmt::Display for SubscriptionStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserSettings {
     pub voice: String,
-    pub speed: f32,
     pub language: String,
-    pub quality: String,
 }
 
 impl Default for UserSettings {
     fn default() -> Self {
         Self {
             voice: "Lucia".to_string(),
-            speed: 1.0,
-            language: "auto".to_string(),
-            quality: "standard".to_string(),
+            language: "en".to_string(),
         }
     }
 }

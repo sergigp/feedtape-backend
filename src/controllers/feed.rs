@@ -36,9 +36,9 @@ impl FeedController {
         State(controller): State<Arc<FeedController>>,
         Extension(auth_user): Extension<AuthUser>,
         Json(request): Json<CreateFeedRequest>,
-    ) -> AppResult<(StatusCode, Json<FeedResponse>)> {
-        let feed = controller.feed_service.create_feed(auth_user.user_id, request).await?;
-        Ok((StatusCode::CREATED, Json(feed)))
+    ) -> AppResult<StatusCode> {
+        controller.feed_service.create_feed(auth_user.user_id, request).await?;
+        Ok(StatusCode::CREATED)
     }
 
     /// PUT /api/feeds/{feedId} - Update feed
@@ -47,9 +47,9 @@ impl FeedController {
         Extension(auth_user): Extension<AuthUser>,
         Path(feed_id): Path<Uuid>,
         Json(request): Json<UpdateFeedRequest>,
-    ) -> AppResult<Json<FeedResponse>> {
-        let feed = controller.feed_service.update_feed(auth_user.user_id, feed_id, request).await?;
-        Ok(Json(feed))
+    ) -> AppResult<StatusCode> {
+        controller.feed_service.update_feed(auth_user.user_id, feed_id, request).await?;
+        Ok(StatusCode::NO_CONTENT)
     }
 
     /// DELETE /api/feeds/{feedId} - Delete feed

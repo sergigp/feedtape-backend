@@ -86,22 +86,21 @@ impl FeedRepository {
         Ok(count)
     }
 
-    /// Create a new feed
+    /// Create a new feed with client-provided ID
     pub async fn create(
         &self,
+        id: Uuid,
         user_id: Uuid,
         url: &str,
-        title: Option<&str>,
-    ) -> AppResult<Feed> {
+        title: &str,
+    ) -> AppResult<()> {
         let pool = self.pool.as_ref();
-        let id = Uuid::new_v4();
         let now = chrono::Utc::now();
 
-        let feed = sqlx::query_as::<_, Feed>(
+        sqlx::query(
             r#"
             INSERT INTO feeds (id, user_id, url, title, created_at)
             VALUES ($1, $2, $3, $4, $5)
-            RETURNING id, user_id, url, title, created_at
             "#,
         )
         .bind(id)
@@ -109,7 +108,7 @@ impl FeedRepository {
         .bind(url)
         .bind(title)
         .bind(now)
-        .fetch_one(pool)
+        .execute(pool)
         .await
         .map_err(|e| {
             if let sqlx::Error::Database(ref db_err) = e {
@@ -120,7 +119,7 @@ impl FeedRepository {
             AppError::Database(e)
         })?;
 
-        Ok(feed)
+        Ok(())
     }
 
     /// Update a feed's title
@@ -128,22 +127,21 @@ impl FeedRepository {
         &self,
         feed_id: Uuid,
         title: Option<&str>,
-    ) -> AppResult<Feed> {
+    ) -> AppResult<()> {
         let pool = self.pool.as_ref();
-        let feed = sqlx::query_as::<_, Feed>(
+        sqlx::query(
             r#"
             UPDATE feeds
             SET title = $1
             WHERE id = $2
-            RETURNING id, user_id, url, title, created_at
             "#,
         )
         .bind(title)
         .bind(feed_id)
-        .fetch_one(pool)
+        .execute(pool)
         .await?;
 
-        Ok(feed)
+        Ok(())
     }
 
     /// Delete a feed

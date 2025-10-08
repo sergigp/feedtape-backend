@@ -21,9 +21,9 @@ pub struct FeedResponse {
 /// Request to create a new feed
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateFeedRequest {
+    pub id: Uuid,
     pub url: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub title: Option<String>,
+    pub title: String,
 }
 
 /// Request to update a feed
