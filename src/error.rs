@@ -45,21 +45,10 @@ pub enum AppError {
     Internal(String),
 }
 
-/// Error response structure matching OpenAPI spec
+/// Error response structure - simplified to just message + status code
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ErrorResponse {
-    pub error: ErrorDetail,
-    pub request_id: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ErrorDetail {
-    pub code: String,
     pub message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub details: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub help_url: Option<String>,
 }
 
 impl AppError {
@@ -79,44 +68,10 @@ impl AppError {
         }
     }
 
-    /// Get the error code string
-    pub fn error_code(&self) -> String {
-        match self {
-            Self::Database(_) => "DATABASE_ERROR",
-            Self::Unauthorized(_) => "UNAUTHORIZED",
-            Self::InvalidRefreshToken => "INVALID_REFRESH_TOKEN",
-            Self::RefreshTokenExpired => "REFRESH_TOKEN_EXPIRED",
-            Self::BadRequest(_) => "BAD_REQUEST",
-            Self::NotFound(_) => "NOT_FOUND",
-            Self::Conflict(_) => "CONFLICT",
-            Self::RateLimitExceeded(_) => "RATE_LIMIT_EXCEEDED",
-            Self::PaymentRequired(_) => "UPGRADE_REQUIRED",
-            Self::PayloadTooLarge(_) => "PAYLOAD_TOO_LARGE",
-            Self::ExternalService(_) => "EXTERNAL_SERVICE_ERROR",
-            Self::Internal(_) => "INTERNAL_ERROR",
-        }
-        .to_string()
-    }
-
-    /// Get help URL for this error type
-    pub fn help_url(&self) -> Option<String> {
-        match self {
-            Self::PaymentRequired(_) => Some("https://feedtape.app/upgrade".to_string()),
-            Self::RateLimitExceeded(_) => Some("https://feedtape.app/docs/limits".to_string()),
-            _ => None,
-        }
-    }
-
-    /// Convert to error response with request ID
-    pub fn to_response(&self, request_id: String) -> ErrorResponse {
+    /// Convert to simplified error response
+    pub fn to_response(&self) -> ErrorResponse {
         ErrorResponse {
-            error: ErrorDetail {
-                code: self.error_code(),
-                message: self.to_string(),
-                details: None,
-                help_url: self.help_url(),
-            },
-            request_id,
+            message: self.to_string(),
         }
     }
 }
@@ -124,20 +79,16 @@ impl AppError {
 /// Implement IntoResponse for automatic conversion in handlers
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        // Generate request ID
-        let request_id = uuid::Uuid::new_v4().to_string();
-
         // Log the error
         let status = self.status_code();
         tracing::error!(
             error = %self,
-            request_id = %request_id,
             status = %status.as_u16(),
             "Request failed"
         );
 
-        // Create error response
-        let error_response = self.to_response(request_id);
+        // Create simplified error response
+        let error_response = self.to_response();
 
         (status, Json(error_response)).into_response()
     }

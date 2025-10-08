@@ -173,14 +173,21 @@ impl ApiResponse {
         self
     }
 
-    pub fn assert_error_code(&self, code: &str) -> &Self {
-        let error = self
+    /// Assert that the error response contains the expected message
+    pub fn assert_error_message(&self, expected_message: &str) -> &Self {
+        let message = self
             .body
             .as_ref()
-            .and_then(|b| b.get("error"))
-            .expect("Missing error field");
-        let actual_code = error.get("code").and_then(|c| c.as_str()).unwrap();
-        assert_eq!(actual_code, code, "Error code mismatch");
+            .and_then(|b| b.get("message"))
+            .and_then(|m| m.as_str())
+            .expect("Missing message field in error response");
+
+        assert!(
+            message.contains(expected_message),
+            "Expected error message to contain '{}', but got '{}'",
+            expected_message,
+            message
+        );
         self
     }
 

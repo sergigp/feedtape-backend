@@ -13,7 +13,6 @@ use uuid::Uuid;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MeResponse {
     pub id: Uuid,
-    pub email: String,
     pub settings: UserSettingsDto,
     pub subscription: SubscriptionDto,
 }
@@ -21,9 +20,7 @@ pub struct MeResponse {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserSettingsDto {
     pub voice: String,
-    pub speed: f32,
     pub language: String,
-    pub quality: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -32,10 +29,6 @@ pub struct SubscriptionDto {
     pub status: String,
     pub usage: UsageDto,
     pub limits: LimitsDto,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<DateTime<Utc>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub store: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -50,7 +43,6 @@ pub struct UsageDto {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LimitsDto {
     pub max_feeds: i32,
-    pub voice_quality: String,
 }
 
 /// Request for PATCH /api/me
@@ -64,9 +56,5 @@ pub struct UpdateSettingsDto {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub voice: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub speed: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub quality: Option<String>,
 }

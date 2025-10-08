@@ -7,6 +7,35 @@ use chrono::{Duration, Utc};
 use serde_json::json;
 use uuid::Uuid;
 use std::sync::Arc;
+use std::collections::HashMap;
+
+/// Voice ID mapping - maps voice names to voice IDs
+fn get_voice_id(voice_name: &str) -> String {
+    let voice_map: HashMap<&str, &str> = [
+        ("Lucia", "voice_lucia_es"),
+        ("Sergio", "voice_sergio_es"),
+        ("Conchita", "voice_conchita_es"),
+        ("Matthew", "voice_matthew_en"),
+        ("Joanna", "voice_joanna_en"),
+        ("Amy", "voice_amy_en"),
+        ("Celine", "voice_celine_fr"),
+        ("Mathieu", "voice_mathieu_fr"),
+        ("Hans", "voice_hans_de"),
+        ("Marlene", "voice_marlene_de"),
+        ("Ricardo", "voice_ricardo_pt"),
+        ("Ines", "voice_ines_pt"),
+        ("Carla", "voice_carla_it"),
+        ("Giorgio", "voice_giorgio_it"),
+    ]
+    .iter()
+    .cloned()
+    .collect();
+
+    voice_map
+        .get(voice_name)
+        .unwrap_or(&"voice_lucia_es")
+        .to_string()
+}
 
 pub struct UserService {
     user_repo: Arc<UserRepository>,
@@ -44,7 +73,7 @@ impl UserService {
         &self,
         user_id: Uuid,
         updates: UpdateSettingsDto,
-    ) -> AppResult<MeResponse> {
+    ) -> AppResult<()> {
         // Get current user
         let user = self.user_repo.find_by_id(user_id)
             .await?
@@ -57,16 +86,8 @@ impl UserService {
         if let Some(voice) = updates.voice {
             settings["voice"] = json!(voice);
         }
-        if let Some(speed) = updates.speed {
-            if speed < 0.5 || speed > 2.0 {
-                return Err(AppError::BadRequest(
-                    "Speed must be between 0.5 and 2.0".to_string(),
-                ));
-            }
-            settings["speed"] = json!(speed);
-        }
         if let Some(language) = updates.language {
-            if !["auto", "es", "en", "fr", "de", "pt", "it"].contains(&language.as_str()) {
+            if !["es", "en", "fr", "de", "pt", "it"].contains(&language.as_str()) {
                 return Err(AppError::BadRequest(format!(
                     "Invalid language: {}",
                     language
@@ -74,25 +95,11 @@ impl UserService {
             }
             settings["language"] = json!(language);
         }
-        if let Some(quality) = updates.quality {
-            if !["standard", "neural"].contains(&quality.as_str()) {
-                return Err(AppError::BadRequest(format!(
-                    "Invalid quality: {}",
-                    quality
-                )));
-            }
-            settings["quality"] = json!(quality);
-        }
 
         // Update in database
-        let updated_user = self.user_repo.update_settings(user_id, settings).await?;
+        self.user_repo.update_settings(user_id, settings).await?;
 
-        // Get usage
-        let usage = self.usage_repo.get_today_usage(user_id).await?;
-
-        let response = Self::build_me_response(&updated_user, usage.as_ref())?;
-
-        Ok(response)
+        Ok(())
     }
 
     /// Build MeResponse from user and usage data
@@ -102,32 +109,21 @@ impl UserService {
     ) -> AppResult<MeResponse> {
         // Parse settings
         let settings_json = &user.settings;
-        let voice = settings_json
+        let voice_name = settings_json
             .get("voice")
             .and_then(|v| v.as_str())
-            .unwrap_or("Lucia")
-            .to_string();
-        let speed = settings_json
-            .get("speed")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(1.0) as f32;
+            .unwrap_or("Lucia");
+        let voice_id = get_voice_id(voice_name);
         let language = settings_json
             .get("language")
             .and_then(|v| v.as_str())
-            .unwrap_or("auto")
-            .to_string();
-        let quality = settings_json
-            .get("quality")
-            .and_then(|v| v.as_str())
-            .unwrap_or("standard")
+            .unwrap_or("en")
             .to_string();
 
         // Calculate limits based on tier
-        let (characters_limit, minutes_limit, max_feeds, voice_quality) = match user
-            .subscription_tier
-        {
-            crate::domain::user::SubscriptionTier::Free => (20000, 20, 3, "standard"),
-            crate::domain::user::SubscriptionTier::Pro => (200000, 200, 999, "neural"),
+        let (characters_limit, minutes_limit, max_feeds) = match user.subscription_tier {
+            crate::domain::user::SubscriptionTier::Free => (20000, 20, 3),
+            crate::domain::user::SubscriptionTier::Pro => (200000, 200, 999),
         };
 
         // Get usage stats
@@ -146,12 +142,9 @@ impl UserService {
 
         Ok(MeResponse {
             id: user.id,
-            email: user.email.clone(),
             settings: UserSettingsDto {
-                voice,
-                speed,
+                voice: voice_id,
                 language,
-                quality,
             },
             subscription: SubscriptionDto {
                 tier: user.subscription_tier.to_string(),
@@ -165,10 +158,7 @@ impl UserService {
                 },
                 limits: LimitsDto {
                     max_feeds,
-                    voice_quality: voice_quality.to_string(),
                 },
-                expires_at: user.subscription_expires_at,
-                store: None, // iOS only - no need to track store in DB anymore
             },
         })
     }

@@ -1,4 +1,4 @@
-use axum::{extract::State, Extension, Json};
+use axum::{extract::State, http::StatusCode, Extension, Json};
 use std::sync::Arc;
 
 use crate::{
@@ -31,12 +31,12 @@ impl UserController {
         State(controller): State<Arc<UserController>>,
         Extension(auth_user): Extension<AuthUser>,
         Json(request): Json<UpdateMeRequest>,
-    ) -> AppResult<Json<MeResponse>> {
+    ) -> AppResult<StatusCode> {
         let settings = request
             .settings
             .ok_or_else(|| crate::error::AppError::BadRequest("Settings are required".to_string()))?;
 
-        let response = controller.user_service.update_user_settings(auth_user.user_id, settings).await?;
-        Ok(Json(response))
+        controller.user_service.update_user_settings(auth_user.user_id, settings).await?;
+        Ok(StatusCode::NO_CONTENT)
     }
 }

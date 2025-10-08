@@ -83,7 +83,7 @@ async fn it_should_reject_invalid_refresh_token() {
 
     response
         .assert_status(StatusCode::UNAUTHORIZED)
-        .assert_error_code("INVALID_REFRESH_TOKEN");
+        .assert_error_message("Invalid refresh token");
 }
 
 #[tokio::test]
@@ -117,7 +117,7 @@ async fn it_should_reject_expired_refresh_token() {
 
     response
         .assert_status(StatusCode::UNAUTHORIZED)
-        .assert_error_code("REFRESH_TOKEN_EXPIRED");
+        .assert_error_message("Refresh token expired");
 }
 
 #[tokio::test]
@@ -278,24 +278,6 @@ async fn it_should_include_request_id_header() {
     assert!(!request_id.is_empty());
 }
 
-#[tokio::test]
-#[serial]
-async fn it_should_include_request_id_in_errors() {
-    let ctx = TestContext::new().await.unwrap();
-
-    // Make an unauthorized request
-    let response = ctx.client.get("/api/me").await.unwrap();
-
-    response.assert_status(StatusCode::UNAUTHORIZED);
-
-    let body = response.body.as_ref().unwrap();
-
-    // Assert complete error response structure
-    let error = &body["error"];
-    assert!(error["code"].is_string(), "Error should have code");
-    assert!(error["message"].is_string(), "Error should have message");
-    assert!(body["request_id"].is_string(), "Response should include request_id");
-}
 
 #[tokio::test]
 #[serial]
