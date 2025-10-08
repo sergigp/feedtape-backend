@@ -1,6 +1,6 @@
 use axum::{
     extract::{Query, State},
-    response::{IntoResponse, Redirect},
+    response::{IntoResponse, Redirect, Response},
     Json,
 };
 use serde::Deserialize;
@@ -8,15 +8,20 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::{
-    domain::auth::{AuthService, TokenResponse},
+    domain::auth::AuthService,
     error::AppResult,
     infrastructure::{oauth::GitHubOAuthClient, repositories::UserRepository},
 };
 
 #[derive(Debug, Deserialize)]
-pub struct OAuthQueryParams {
+pub struct InitiateOAuthParams {
+    pub mobile: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OAuthCallbackParams {
     pub code: String,
-    pub state: Option<String>,
+    pub state: String,
 }
 
 pub struct OAuthController {
@@ -39,11 +44,22 @@ impl OAuthController {
     }
 
     /// GET /auth/oauth/github - Initiate GitHub OAuth flow
+    ///
+    /// Query params:
+    /// - mobile: Optional boolean. If true, callback will redirect to mobile deep link
     pub async fn initiate_github(
         State(controller): State<Arc<OAuthController>>,
+        Query(params): Query<InitiateOAuthParams>,
     ) -> impl IntoResponse {
-        // Generate random state for CSRF protection
-        let state = Uuid::new_v4().to_string();
+        // Generate random UUID for CSRF protection
+        let uuid = Uuid::new_v4().to_string();
+
+        // Encode mobile indicator in state: "mobile:UUID" or "web:UUID"
+        let state = if params.mobile.unwrap_or(false) {
+            format!("mobile:{}", uuid)
+        } else {
+            format!("web:{}", uuid)
+        };
 
         // TODO: Store state in session/cache for validation (currently simplified)
         // In production, you'd store this with expiry in Redis or DB
@@ -54,10 +70,17 @@ impl OAuthController {
     }
 
     /// GET /auth/callback/github - Handle GitHub OAuth callback
+    ///
+    /// Returns either:
+    /// - JSON with tokens (for web clients)
+    /// - Redirect to deep link (for mobile clients)
     pub async fn github_callback(
         State(controller): State<Arc<OAuthController>>,
-        Query(params): Query<OAuthQueryParams>,
-    ) -> AppResult<Json<TokenResponse>> {
+        Query(params): Query<OAuthCallbackParams>,
+    ) -> AppResult<Response> {
+        // Parse state to detect if this is a mobile request
+        let is_mobile = params.state.starts_with("mobile:");
+
         // TODO: Validate state parameter against stored value
         // For now, we skip this check for simplicity
 
@@ -101,6 +124,18 @@ impl OAuthController {
             .create_tokens_for_user(user.id, &user.email)
             .await?;
 
-        Ok(Json(tokens))
+        // Return appropriate response based on client type
+        if is_mobile {
+            // Build deep link URL with tokens
+            let deep_link = format!(
+                "feedtape://auth/callback?token={}&refresh_token={}&expires_in={}",
+                urlencoding::encode(&tokens.token),
+                urlencoding::encode(&tokens.refresh_token),
+                tokens.expires_in
+            );
+            Ok(Redirect::temporary(&deep_link).into_response())
+        } else {
+            Ok(Json(tokens).into_response())
+        }
     }
 }
