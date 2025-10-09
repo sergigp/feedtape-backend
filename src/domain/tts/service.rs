@@ -58,10 +58,18 @@ impl TtsService {
             return Err(AppError::BadRequest("Text cannot be empty".to_string()));
         }
 
-        // Get user
+        // Get user early to check tier for Polly limits
         let user = self.user_repo.find_by_id(user_id)
             .await?
             .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+
+        // AWS Polly has a 3000 character limit per request for neural voices
+        // Standard voices also have 3000 character limit
+        if char_count > 3000 {
+            return Err(AppError::PayloadTooLarge(
+                "Text must be 3,000 characters or less (AWS Polly limit)".to_string(),
+            ));
+        }
 
         // Check usage limits
         self.check_usage_limits(&user, char_count).await?;
@@ -144,10 +152,14 @@ impl TtsService {
             Engine::Standard
         };
 
-        tracing::debug!(
+        // Log the full request details for debugging
+        tracing::info!(
             voice = %voice,
+            voice_id = ?voice_id,
             engine = ?engine,
+            output_format = "Mp3",
             text_length = text.len(),
+            text_preview = &text[..text.len().min(200)],
             "Calling AWS Polly synthesize_speech"
         );
 
@@ -162,13 +174,14 @@ impl TtsService {
             .await
             .map_err(|e| {
                 tracing::error!(
-                    error = %e,
+                    error = ?e,
+                    error_display = %e,
                     voice = %voice,
                     engine = ?engine,
                     text_length = text.len(),
                     "AWS Polly synthesize_speech failed"
                 );
-                AppError::ExternalService(format!("AWS Polly error: {}", e))
+                AppError::ExternalService(format!("AWS Polly error: {:?}", e))
             })?;
 
         tracing::debug!("AWS Polly synthesize_speech successful, reading audio stream");
