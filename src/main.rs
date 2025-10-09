@@ -27,12 +27,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Database connection verified");
 
     // Create AWS Polly client
+    tracing::info!("Initializing AWS Polly client with region: {}", config.aws_region);
+
+    // Check for AWS credentials in environment (for debugging)
+    let has_access_key = std::env::var("AWS_ACCESS_KEY_ID").is_ok();
+    let has_secret_key = std::env::var("AWS_SECRET_ACCESS_KEY").is_ok();
+    tracing::info!(
+        has_access_key_id = has_access_key,
+        has_secret_access_key = has_secret_key,
+        "AWS credentials environment check"
+    );
+
+    if !has_access_key || !has_secret_key {
+        tracing::warn!("AWS credentials not found in environment variables. Will attempt to use other credential providers (instance metadata, etc.)");
+    }
+
     let aws_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
         .region(aws_config::Region::new(config.aws_region.clone()))
         .load()
         .await;
+
+    // Log AWS config details (without exposing credentials)
+    tracing::info!(
+        region = ?aws_config.region(),
+        "AWS configuration loaded"
+    );
+
     let polly_client = aws_sdk_polly::Client::new(&aws_config);
-    tracing::info!("AWS Polly client initialized");
+    tracing::info!("AWS Polly client initialized successfully");
 
     let pool = Arc::new(pool);
     let config = Arc::new(config);

@@ -149,6 +149,13 @@ impl TtsService {
             Engine::Standard
         };
 
+        tracing::debug!(
+            voice = %voice,
+            engine = ?engine,
+            text_length = text.len(),
+            "Calling AWS Polly synthesize_speech"
+        );
+
         // Call Polly
         let result = self.polly_client
             .synthesize_speech()
@@ -158,15 +165,32 @@ impl TtsService {
             .engine(engine)
             .send()
             .await
-            .map_err(|e| AppError::ExternalService(format!("AWS Polly error: {}", e)))?;
+            .map_err(|e| {
+                tracing::error!(
+                    error = %e,
+                    voice = %voice,
+                    engine = ?engine,
+                    text_length = text.len(),
+                    "AWS Polly synthesize_speech failed"
+                );
+                AppError::ExternalService(format!("AWS Polly error: {}", e))
+            })?;
+
+        tracing::debug!("AWS Polly synthesize_speech successful, reading audio stream");
 
         // Get audio stream
         let audio_stream = result
             .audio_stream
             .collect()
             .await
-            .map_err(|e| AppError::ExternalService(format!("Failed to read audio stream: {}", e)))?;
+            .map_err(|e| {
+                tracing::error!(error = %e, "Failed to collect audio stream from Polly response");
+                AppError::ExternalService(format!("Failed to read audio stream: {}", e))
+            })?;
 
-        Ok(audio_stream.into_bytes().to_vec())
+        let audio_bytes = audio_stream.into_bytes().to_vec();
+        tracing::debug!(audio_size = audio_bytes.len(), "Audio stream collected successfully");
+
+        Ok(audio_bytes)
     }
 }
