@@ -5,6 +5,7 @@ use axum::{
     Extension, Json,
 };
 use std::sync::Arc;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     domain::{
@@ -19,7 +20,13 @@ use crate::{
     },
 };
 use chrono::{Duration, Utc};
-use crate::domain::tts::TtsRequest;
+
+/// Request for POST /api/tts/synthesize
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TtsRequest {
+    pub text: String,
+    pub link: String,
+}
 
 pub struct TtsController {
     tts_service: Arc<TtsService>,
@@ -61,7 +68,7 @@ impl TtsController {
 
         // Synthesize speech using service
         let result = controller.tts_service
-            .synthesize(auth_user.user_id, request)
+            .synthesize(auth_user.user_id, request.text, request.link)
             .await
             .map_err(|e| AppError::from(e))?;
 

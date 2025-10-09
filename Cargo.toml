@@ -36,6 +36,10 @@ aws-sdk-polly = "1.13"
 # Language detection (only languages we support)
 lingua = { version = "1.6", default-features = false, features = ["english", "spanish", "french", "german", "italian", "portuguese"] }
 
+# HTML to text conversion
+html2text = "0.12"
+regex = "1"
+
 # Environment variables
 dotenvy = "0.15"
 
