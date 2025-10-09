@@ -74,24 +74,14 @@ pub fn detect_language(text: &str) -> LanguageCode {
 }
 
 /// Get the appropriate Polly voice ID for a language and quality
-pub fn get_voice_for_language(language: LanguageCode, quality: &str) -> &'static str {
-    // Return voice based on language and quality (neural vs standard)
-    match (language, quality) {
-        // Neural voices
-        (LanguageCode::English, "neural") => "Joanna",
-        (LanguageCode::Spanish, "neural") => "Lupe",   // Lucia doesn't support neural
-        (LanguageCode::French, "neural") => "Lea",
-        (LanguageCode::German, "neural") => "Vicki",
-        (LanguageCode::Italian, "neural") => "Bianca",
-        (LanguageCode::Portuguese, "neural") => "Ines",
-
-        // Standard voices (fallback)
-        (LanguageCode::English, _) => "Joanna",
-        (LanguageCode::Spanish, _) => "Lucia",
-        (LanguageCode::French, _) => "Lea",
-        (LanguageCode::German, _) => "Vicki",
-        (LanguageCode::Italian, _) => "Bianca",
-        (LanguageCode::Portuguese, _) => "Ines",
+pub fn get_voice_for_language(language: LanguageCode) -> &'static str {
+    match language {
+        LanguageCode::English => "Joanna",
+        LanguageCode::Spanish => "Lupe", // Lucia doesn't support neural
+        LanguageCode::French => "Lea",
+        LanguageCode::German => "Vicki",
+        LanguageCode::Italian => "Bianca",
+        LanguageCode::Portuguese => "Ines",
     }
 }
 
@@ -103,22 +93,14 @@ pub fn is_voice_neural_compatible(voice: &str) -> bool {
         // English
         "Joanna", "Matthew", "Ivy", "Kendra", "Kimberly", "Salli", "Joey", "Justin", "Kevin",
         // Spanish
-        "Lupe", "Pedro", "Sergio",
-        // French
-        "Lea", "Remi",
-        // German
-        "Vicki", "Daniel",
-        // Italian
-        "Bianca", "Adriano",
-        // Portuguese
-        "Ines", "Camila", "Vitoria", "Thiago",
-        // Japanese
-        "Takumi", "Kazuha", "Tomoko",
-        // Korean
-        "Seoyeon",
-        // Mandarin Chinese
-        "Zhiyu",
-        // Arabic
+        "Lupe", "Pedro", "Sergio", // French
+        "Lea", "Remi", // German
+        "Vicki", "Daniel", // Italian
+        "Bianca", "Adriano", // Portuguese
+        "Ines", "Camila", "Vitoria", "Thiago", // Japanese
+        "Takumi", "Kazuha", "Tomoko",  // Korean
+        "Seoyeon", // Mandarin Chinese
+        "Zhiyu",   // Arabic
         "Hala", "Zayd",
     ];
 

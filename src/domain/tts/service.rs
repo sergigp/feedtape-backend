@@ -173,7 +173,7 @@ impl TtsService {
 
     async fn call_polly(&self, text: &str, language_code: LanguageCode) -> Result<Vec<u8>, TtsServiceError> {
         // Select voice based on detected language (always use neural)
-        let voice_name = super::language::get_voice_for_language(language_code, "neural");
+        let voice_name = super::language::get_voice_for_language(language_code);
         let voice_id = VoiceId::from(voice_name);
         let engine = Engine::Neural;
 
