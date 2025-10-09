@@ -38,6 +38,14 @@ impl TtsService {
         user_id: Uuid,
         request: TtsRequest,
     ) -> AppResult<(Vec<u8>, String, i32, f32)> {
+        // Log analytics data
+        tracing::info!(
+            user_id = %user_id,
+            link = %request.link,
+            text_length = request.text.len(),
+            "TTS synthesis request"
+        );
+
         // Validate text length
         let char_count = request.text.len() as i32;
         if char_count > 10000 {

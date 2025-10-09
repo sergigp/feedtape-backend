@@ -17,7 +17,8 @@ async fn it_should_synthesize_text_to_speech() {
         .post_with_auth(
             "/api/tts/synthesize",
             &json!({
-                "text": "Hello, this is a test message for text to speech."
+                "text": "Hello, this is a test message for text to speech.",
+                "link": "https://example.com/test-article"
             }),
             &token,
         )
@@ -54,15 +55,15 @@ async fn it_should_use_custom_voice_settings() {
             "/api/tts/synthesize",
             &json!({
                 "text": "Este es un mensaje de prueba en español.",
-                "language": "es",
-                "speed": 1.25
+                "link": "https://example.com/articulo",
+                "language": "es"
             }),
             &token,
         )
         .await
         .unwrap();
 
-    // Test that endpoint accepts language and speed parameters
+    // Test that endpoint accepts language parameter
     // With mocked AWS, synthesis fails with 500, but we can still test validation
     assert!(
         response.status == StatusCode::OK ||
@@ -93,6 +94,7 @@ async fn it_should_auto_detect_language() {
                 "/api/tts/synthesize",
                 &json!({
                     "text": text,
+                    "link": "https://example.com/test",
                     "language": "auto"
                 }),
                 &token,
@@ -127,7 +129,8 @@ async fn it_should_enforce_text_length_limits() {
         .post_with_auth(
             "/api/tts/synthesize",
             &json!({
-                "text": ""
+                "text": "",
+                "link": "https://example.com/test"
             }),
             &token,
         )
@@ -143,7 +146,8 @@ async fn it_should_enforce_text_length_limits() {
         .post_with_auth(
             "/api/tts/synthesize",
             &json!({
-                "text": long_text
+                "text": long_text,
+                "link": "https://example.com/test"
             }),
             &token,
         )
@@ -171,7 +175,8 @@ async fn it_should_enforce_daily_usage_limits() {
         .post_with_auth(
             "/api/tts/synthesize",
             &json!({
-                "text": "Short text"
+                "text": "Short text",
+                "link": "https://example.com/test"
             }),
             &token,
         )
@@ -195,7 +200,8 @@ async fn it_should_enforce_daily_usage_limits() {
         .post_with_auth(
             "/api/tts/synthesize",
             &json!({
-                "text": large_text
+                "text": large_text,
+                "link": "https://example.com/test"
             }),
             &token,
         )
@@ -228,7 +234,8 @@ async fn it_should_allow_higher_limits_for_pro_users() {
         .post_with_auth(
             "/api/tts/synthesize",
             &json!({
-                "text": "Pro users have higher limits"
+                "text": "Pro users have higher limits",
+                "link": "https://example.com/pro-test"
             }),
             &token,
         )
@@ -259,7 +266,8 @@ async fn it_should_require_pro_for_neural_voices() {
         .post_with_auth(
             "/api/tts/synthesize",
             &json!({
-                "text": "Testing voice quality"
+                "text": "Testing voice quality",
+                "link": "https://example.com/test"
             }),
             &free_token,
         )
@@ -279,7 +287,8 @@ async fn it_should_require_pro_for_neural_voices() {
         .post_with_auth(
             "/api/tts/synthesize",
             &json!({
-                "text": "Testing voice quality"
+                "text": "Testing voice quality",
+                "link": "https://example.com/test"
             }),
             &pro_token,
         )
@@ -373,59 +382,31 @@ async fn it_should_track_usage_history() {
 
 #[tokio::test]
 #[serial]
-async fn it_should_validate_speed_parameter() {
+async fn it_should_accept_valid_requests() {
     let ctx = TestContext::new().await.unwrap();
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
-    // Invalid speeds
-    let invalid_speeds = vec![0.4, 2.1, -1.0];
+    // Test that basic synthesis request works
+    let response = ctx
+        .client
+        .post_with_auth(
+            "/api/tts/synthesize",
+            &json!({
+                "text": "Testing basic request",
+                "link": "https://example.com/test"
+            }),
+            &token,
+        )
+        .await
+        .unwrap();
 
-    for speed in invalid_speeds {
-        let response = ctx
-            .client
-            .post_with_auth(
-                "/api/tts/synthesize",
-                &json!({
-                    "text": "Testing speed",
-                    "speed": speed
-                }),
-                &token,
-            )
-            .await
-            .unwrap();
-
-        // With mocked AWS, validation might not happen before AWS call, so we get 500
-        assert!(
-            response.status == StatusCode::BAD_REQUEST ||
-            response.status == StatusCode::INTERNAL_SERVER_ERROR // AWS mock fails
-        );
-    }
-
-    // Valid speeds
-    let valid_speeds = vec![0.5, 1.0, 1.5, 2.0];
-
-    for speed in valid_speeds {
-        let response = ctx
-            .client
-            .post_with_auth(
-                "/api/tts/synthesize",
-                &json!({
-                    "text": "Testing speed",
-                    "speed": speed
-                }),
-                &token,
-            )
-            .await
-            .unwrap();
-
-        // With mocked AWS, synthesis fails with 500
-        assert!(
-            response.status == StatusCode::OK ||
-            response.status == StatusCode::SERVICE_UNAVAILABLE ||
-            response.status == StatusCode::INTERNAL_SERVER_ERROR // AWS mock fails
-        );
-    }
+    // With mocked AWS, synthesis fails with 500
+    assert!(
+        response.status == StatusCode::OK ||
+        response.status == StatusCode::SERVICE_UNAVAILABLE ||
+        response.status == StatusCode::INTERNAL_SERVER_ERROR // AWS mock fails
+    );
 }
 
 #[tokio::test]
@@ -439,7 +420,8 @@ async fn it_should_require_authentication_for_tts() {
         .post(
             "/api/tts/synthesize",
             &json!({
-                "text": "Unauthorized test"
+                "text": "Unauthorized test",
+                "link": "https://example.com/test"
             }),
         )
         .await
@@ -467,7 +449,8 @@ async fn it_should_include_usage_remaining_header() {
         .post_with_auth(
             "/api/tts/synthesize",
             &json!({
-                "text": "Check remaining usage"
+                "text": "Check remaining usage",
+                "link": "https://example.com/test"
             }),
             &token,
         )

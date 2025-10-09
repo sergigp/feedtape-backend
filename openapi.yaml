@@ -127,23 +127,23 @@ components:
       type: object
       required:
         - text
+        - link
       properties:
         text:
           type: string
           minLength: 1
           maxLength: 10000
           description: Article content to convert to speech
+        link:
+          type: string
+          format: uri
+          description: URL of the article being synthesized (for analytics)
+          example: "https://blog.example.com/article-title"
         language:
           type: string
           enum: [auto, es, en, fr, de, pt, it]
           default: auto
           description: Language for TTS or auto-detect
-        speed:
-          type: number
-          minimum: 0.5
-          maximum: 2.0
-          description: Playback speed multiplier
-          example: 1.0
 
     TokenResponse:
       type: object
@@ -508,12 +508,13 @@ paths:
                 summary: Basic request with auto-detect
                 value:
                   text: "Este es el contenido del artículo"
+                  link: "https://blog.example.com/articulo-ejemplo"
               with_language:
                 summary: With explicit language
                 value:
                   text: "Article content here"
+                  link: "https://blog.example.com/article-title"
                   language: "en"
-                  speed: 1.25
       responses:
         '200':
           description: Audio generated
