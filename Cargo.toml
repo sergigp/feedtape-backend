@@ -49,6 +49,9 @@ urlencoding = "2.1"
 anyhow = "1.0"
 thiserror = "1.0"
 
+# Async traits
+async-trait = "0.1"
+
 [dev-dependencies]
 # Test containers for integration tests
 testcontainers = "0.15"

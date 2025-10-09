@@ -8,11 +8,11 @@ use std::sync::Arc;
 
 use crate::{
     domain::{
-        tts::{TtsService},
+        tts::{TtsService, TtsServiceApi},
         user::UserService,
         shared::usage_dto::{DailyUsage, UsageLimits, UsageResponse, UsageStats},
     },
-    error::AppResult,
+    error::{AppError, AppResult},
     infrastructure::{
         auth::AuthUser,
         repositories::UsageRepository,
@@ -46,12 +46,27 @@ impl TtsController {
         Extension(auth_user): Extension<AuthUser>,
         Json(request): Json<TtsRequest>,
     ) -> AppResult<(StatusCode, HeaderMap, Body)> {
-        // Synthesize speech
-        let (audio_data, language_detected, char_count, duration_minutes) =
-            controller.tts_service.synthesize(auth_user.user_id, request).await?;
+        // Validate input
+        let char_count = request.text.len() as i32;
+
+        if char_count == 0 {
+            return Err(AppError::BadRequest("Text cannot be empty".to_string()));
+        }
+
+        if char_count > 10000 {
+            return Err(AppError::PayloadTooLarge(
+                "Text must be 10,000 characters or less".to_string(),
+            ));
+        }
+
+        // Synthesize speech using service
+        let result = controller.tts_service
+            .synthesize(auth_user.user_id, request)
+            .await
+            .map_err(|e| AppError::from(e))?;
 
         // Calculate duration in seconds (approximate)
-        let duration_seconds = (duration_minutes * 60.0) as u64;
+        let duration_seconds = (result.duration_minutes * 60.0) as u64;
 
         // Get remaining usage
         let usage = controller.usage_repo.get_today_usage(auth_user.user_id)
@@ -68,18 +83,18 @@ impl TtsController {
         );
         headers.insert(
             "X-Character-Count",
-            char_count.to_string().parse().unwrap(),
+            result.char_count.to_string().parse().unwrap(),
         );
         headers.insert(
             "X-Language-Detected",
-            language_detected.parse().unwrap(),
+            result.language_detected.parse().unwrap(),
         );
         headers.insert(
             "X-Usage-Remaining",
             (character_limit - characters_used).to_string().parse().unwrap(),
         );
 
-        Ok((StatusCode::OK, headers, Body::from(audio_data)))
+        Ok((StatusCode::OK, headers, Body::from(result.audio_data)))
     }
 
     /// GET /api/tts/usage - Get usage statistics
