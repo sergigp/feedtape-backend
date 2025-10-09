@@ -1,8 +1,58 @@
 use lingua::{Language, LanguageDetectorBuilder};
+use serde::{Deserialize, Serialize};
+
+/// ISO 639-1 language codes supported by the TTS system
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LanguageCode {
+    #[serde(rename = "en")]
+    English,
+    #[serde(rename = "es")]
+    Spanish,
+    #[serde(rename = "fr")]
+    French,
+    #[serde(rename = "de")]
+    German,
+    #[serde(rename = "it")]
+    Italian,
+    #[serde(rename = "pt")]
+    Portuguese,
+}
+
+impl LanguageCode {
+    /// Get the ISO 639-1 code as a string
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            LanguageCode::English => "en",
+            LanguageCode::Spanish => "es",
+            LanguageCode::French => "fr",
+            LanguageCode::German => "de",
+            LanguageCode::Italian => "it",
+            LanguageCode::Portuguese => "pt",
+        }
+    }
+
+    /// Convert lingua Language to LanguageCode
+    pub fn from_lingua(language: Language) -> Self {
+        match language {
+            Language::English => LanguageCode::English,
+            Language::Spanish => LanguageCode::Spanish,
+            Language::French => LanguageCode::French,
+            Language::German => LanguageCode::German,
+            Language::Italian => LanguageCode::Italian,
+            Language::Portuguese => LanguageCode::Portuguese,
+        }
+    }
+}
+
+impl std::fmt::Display for LanguageCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
 
 /// Detect the language of the given text
-/// Returns ISO 639-1 language code (en, es, fr, de, it, pt) or defaults to "es"
-pub fn detect_language(text: &str) -> String {
+/// Returns LanguageCode or defaults to Spanish
+pub fn detect_language(text: &str) -> LanguageCode {
     // Build detector with our supported languages
     let languages = vec![
         Language::English,
@@ -17,41 +67,31 @@ pub fn detect_language(text: &str) -> String {
 
     // Detect language
     if let Some(language) = detector.detect_language_of(text) {
-        match language {
-            Language::English => "en".to_string(),
-            Language::Spanish => "es".to_string(),
-            Language::French => "fr".to_string(),
-            Language::German => "de".to_string(),
-            Language::Italian => "it".to_string(),
-            Language::Portuguese => "pt".to_string(),
-        }
+        LanguageCode::from_lingua(language)
     } else {
-        "es".to_string() // Default to Spanish if detection fails
+        LanguageCode::Spanish // Default to Spanish if detection fails
     }
 }
 
 /// Get the appropriate Polly voice ID for a language and quality
-pub fn get_voice_for_language(language: &str, quality: &str) -> &'static str {
+pub fn get_voice_for_language(language: LanguageCode, quality: &str) -> &'static str {
     // Return voice based on language and quality (neural vs standard)
     match (language, quality) {
         // Neural voices
-        ("en", "neural") => "Joanna",
-        ("es", "neural") => "Lupe",   // Lucia doesn't support neural
-        ("fr", "neural") => "Lea",
-        ("de", "neural") => "Vicki",
-        ("it", "neural") => "Bianca",
-        ("pt", "neural") => "Ines",
+        (LanguageCode::English, "neural") => "Joanna",
+        (LanguageCode::Spanish, "neural") => "Lupe",   // Lucia doesn't support neural
+        (LanguageCode::French, "neural") => "Lea",
+        (LanguageCode::German, "neural") => "Vicki",
+        (LanguageCode::Italian, "neural") => "Bianca",
+        (LanguageCode::Portuguese, "neural") => "Ines",
 
         // Standard voices (fallback)
-        ("en", _) => "Joanna",
-        ("es", _) => "Lucia",
-        ("fr", _) => "Lea",
-        ("de", _) => "Vicki",
-        ("it", _) => "Bianca",
-        ("pt", _) => "Ines",
-
-        // Default
-        _ => "Lucia",
+        (LanguageCode::English, _) => "Joanna",
+        (LanguageCode::Spanish, _) => "Lucia",
+        (LanguageCode::French, _) => "Lea",
+        (LanguageCode::German, _) => "Vicki",
+        (LanguageCode::Italian, _) => "Bianca",
+        (LanguageCode::Portuguese, _) => "Ines",
     }
 }
 

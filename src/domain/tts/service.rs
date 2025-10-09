@@ -1,5 +1,6 @@
 use crate::infrastructure::repositories::{UsageRepository, UserRepository};
 use super::error::TtsServiceError;
+use super::language::LanguageCode;
 use crate::domain::user::{SubscriptionTier, User};
 use aws_sdk_polly::{
     types::{Engine, OutputFormat, VoiceId},
@@ -9,6 +10,7 @@ use uuid::Uuid;
 use std::sync::Arc;
 use async_trait::async_trait;
 use html2text::from_read;
+use lingua::{LanguageDetector, LanguageDetectorBuilder};
 
 const CHARACTERS_PER_MINUTE: f32 = 1000.0;
 const MAX_BATCH_SIZE: usize = 3000;
@@ -16,7 +18,7 @@ const MAX_BATCH_SIZE: usize = 3000;
 #[derive(Debug, Clone)]
 pub struct TtsSynthesisResult {
     pub audio_data: Vec<u8>,
-    pub language_detected: String,
+    pub language_detected: LanguageCode,
     pub char_count: i32,
     pub duration_minutes: f32,
 }
@@ -25,6 +27,7 @@ pub struct TtsService {
     user_repo: Arc<UserRepository>,
     usage_repo: Arc<UsageRepository>,
     polly_client: Arc<PollyClient>,
+    language_detector: LanguageDetector,
 }
 
 impl TtsService {
@@ -33,10 +36,14 @@ impl TtsService {
         usage_repo: Arc<UsageRepository>,
         polly_client: Arc<PollyClient>,
     ) -> Self {
+        // Create language detector with the languages we support in Cargo.toml
+        let language_detector = LanguageDetectorBuilder::from_all_languages().build();
+
         Self {
             user_repo,
             usage_repo,
             polly_client,
+            language_detector,
         }
     }
 }
@@ -85,31 +92,40 @@ impl TtsServiceApi for TtsService {
             "Text cleaned"
         );
 
-        // 2. Find user
+        // 2. Detect language from cleaned text
+        let detected_language = self.detect_language(&cleaned_text);
+
+        tracing::info!(
+            link = %link,
+            language_detected = %detected_language,
+            "Language detected for TTS synthesis"
+        );
+
+        // 3. Find user
         let user = self.find_user(user_id).await?;
 
-        // 3. Guard usage limits
+        // 4. Guard usage limits
         self.guard_usage(&user, char_count).await?;
 
-        // 4. Split text into batches
+        // 5. Split text into batches
         let batches = self.split_into_batches(&cleaned_text);
         tracing::info!(
             batch_count = batches.len(),
             "Text split into batches"
         );
 
-        // 5. Call Polly for each batch and merge results
-        let audio_data = self.synthesize_batches(&batches).await?;
+        // 6. Call Polly for each batch and merge results using the detected language
+        let audio_data = self.synthesize_batches(&batches, detected_language).await?;
 
-        // 6. Track usage
+        // 7. Track usage
         self.track_usage(user_id, char_count).await?;
 
-        // 7. Calculate duration and return result
+        // 8. Calculate duration and return result
         let duration_minutes = char_count as f32 / CHARACTERS_PER_MINUTE;
 
         Ok(TtsSynthesisResult {
             audio_data,
-            language_detected: "en".to_string(),
+            language_detected: detected_language,
             char_count,
             duration_minutes,
         })
@@ -155,14 +171,16 @@ impl TtsService {
         Ok(())
     }
 
-    async fn call_polly(&self, text: &str) -> Result<Vec<u8>, TtsServiceError> {
-        // Use English neural voice (Joanna)
-        let voice_id = VoiceId::from("Joanna");
+    async fn call_polly(&self, text: &str, language_code: LanguageCode) -> Result<Vec<u8>, TtsServiceError> {
+        // Select voice based on detected language (always use neural)
+        let voice_name = super::language::get_voice_for_language(language_code, "neural");
+        let voice_id = VoiceId::from(voice_name);
         let engine = Engine::Neural;
 
         // Log the full request details for debugging
         tracing::info!(
-            voice = "Joanna",
+            language = %language_code,
+            voice = voice_name,
             voice_id = ?voice_id,
             engine = ?engine,
             output_format = "Mp3",
@@ -170,6 +188,9 @@ impl TtsService {
             text_preview = &text[..text.len().min(200)],
             "Calling AWS Polly synthesize_speech"
         );
+
+        // Clone voice_id for error logging since it will be moved
+        let voice_id_for_error = voice_id.clone();
 
         // Call Polly
         let result = self.polly_client
@@ -184,7 +205,8 @@ impl TtsService {
                 tracing::error!(
                     error = ?e,
                     error_display = %e,
-                    voice = "Joanna",
+                    language = %language_code,
+                    voice_id = ?voice_id_for_error,
                     engine = ?engine,
                     text_length = text.len(),
                     "AWS Polly synthesize_speech failed"
@@ -211,7 +233,7 @@ impl TtsService {
     }
 
     /// Synthesize multiple text batches and merge the audio results in order
-    async fn synthesize_batches(&self, batches: &[String]) -> Result<Vec<u8>, TtsServiceError> {
+    async fn synthesize_batches(&self, batches: &[String], language_code: LanguageCode) -> Result<Vec<u8>, TtsServiceError> {
         let mut merged_audio = Vec::new();
 
         for (index, batch) in batches.iter().enumerate() {
@@ -221,7 +243,7 @@ impl TtsService {
                 "Synthesizing batch"
             );
 
-            let audio_data = self.call_polly(batch).await?;
+            let audio_data = self.call_polly(batch, language_code).await?;
             merged_audio.extend(audio_data);
 
             tracing::info!(
@@ -239,6 +261,20 @@ impl TtsService {
             .increment_usage(user_id, char_count)
             .await
             .map_err(|e| TtsServiceError::Dependency(e.to_string()))
+    }
+
+    /// Detect language from text
+    fn detect_language(&self, text: &str) -> LanguageCode {
+        match self.language_detector.detect_language_of(text) {
+            Some(language) => {
+                // Convert lingua Language enum to LanguageCode
+                LanguageCode::from_lingua(language)
+            }
+            None => {
+                tracing::warn!("Could not detect language, falling back to English");
+                LanguageCode::English
+            }
+        }
     }
 
     /// Clean text by removing HTML tags and normalizing whitespace
@@ -316,6 +352,7 @@ impl TtsService {
 
 #[cfg(test)]
 mod tests {
+    use lingua::Language;
     use super::*;
 
     // Test helper functions that mirror the service methods
@@ -516,5 +553,53 @@ mod tests {
         let text = "a".repeat(MAX_BATCH_SIZE + 1);
         let batches = split_into_batches_test(&text);
         assert!(batches.len() >= 2, "Expected at least 2 batches, got {}", batches.len());
+    }
+
+    #[test]
+    fn test_detect_language_english() {
+        let detector = LanguageDetectorBuilder::from_all_languages().build();
+        let text = "This is a test in English. The quick brown fox jumps over the lazy dog.";
+        let language = detector.detect_language_of(text);
+        assert_eq!(language, Some(Language::English));
+    }
+
+    #[test]
+    fn test_detect_language_spanish() {
+        let detector = LanguageDetectorBuilder::from_all_languages().build();
+        let text = "Esto es una prueba en español. El rápido zorro marrón salta sobre el perro perezoso.";
+        let language = detector.detect_language_of(text);
+        assert_eq!(language, Some(Language::Spanish));
+    }
+
+    #[test]
+    fn test_detect_language_french() {
+        let detector = LanguageDetectorBuilder::from_all_languages().build();
+        let text = "Ceci est un test en français. Le rapide renard brun saute par-dessus le chien paresseux.";
+        let language = detector.detect_language_of(text);
+        assert_eq!(language, Some(Language::French));
+    }
+
+    #[test]
+    fn test_detect_language_german() {
+        let detector = LanguageDetectorBuilder::from_all_languages().build();
+        let text = "Dies ist ein Test auf Deutsch. Der schnelle braune Fuchs springt über den faulen Hund.";
+        let language = detector.detect_language_of(text);
+        assert_eq!(language, Some(Language::German));
+    }
+
+    #[test]
+    fn test_detect_language_italian() {
+        let detector = LanguageDetectorBuilder::from_all_languages().build();
+        let text = "Questo è un test in italiano. La volpe marrone veloce salta sopra il cane pigro.";
+        let language = detector.detect_language_of(text);
+        assert_eq!(language, Some(Language::Italian));
+    }
+
+    #[test]
+    fn test_detect_language_portuguese() {
+        let detector = LanguageDetectorBuilder::from_all_languages().build();
+        let text = "Este é um teste em português. A rápida raposa marrom salta sobre o cão preguiçoso.";
+        let language = detector.detect_language_of(text);
+        assert_eq!(language, Some(Language::Portuguese));
     }
 }
