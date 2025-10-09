@@ -8,7 +8,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::{
-    domain::auth::AuthService,
+    domain::auth::{AuthService, AuthServiceApi},
     error::AppResult,
     infrastructure::{oauth::GitHubOAuthClient, repositories::UserRepository},
 };

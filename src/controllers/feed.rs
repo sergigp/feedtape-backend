@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::{
     error::AppResult,
     infrastructure::auth::AuthUser,
-    domain::feed::FeedService,
+    domain::feed::{FeedService, FeedServiceApi},
 };
 use crate::domain::feed::{CreateFeedRequest, FeedResponse, UpdateFeedRequest};
 

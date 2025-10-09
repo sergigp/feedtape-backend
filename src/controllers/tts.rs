@@ -9,7 +9,7 @@ use std::sync::Arc;
 use crate::{
     domain::{
         tts::{TtsService, TtsServiceApi},
-        user::UserService,
+        user::{UserService, UserServiceApi},
         shared::usage_dto::{DailyUsage, UsageLimits, UsageResponse, UsageStats},
     },
     error::{AppError, AppResult},

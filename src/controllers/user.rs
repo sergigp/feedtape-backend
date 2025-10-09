@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::{
     error::AppResult,
     infrastructure::auth::AuthUser,
-    domain::user::UserService,
+    domain::user::{UserService, UserServiceApi},
 };
 use crate::domain::user::{MeResponse, UpdateMeRequest};
 

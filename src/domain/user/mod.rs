@@ -1,9 +1,12 @@
 pub mod dto;
+pub mod error;
 pub mod model;
 pub mod service;
+pub mod voice_mapping;
 
+pub use error::UserServiceError;
 pub use model::{SubscriptionStatus, SubscriptionTier, User, UserSettings};
-pub use service::UserService;
+pub use service::{UserService, UserServiceApi};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
