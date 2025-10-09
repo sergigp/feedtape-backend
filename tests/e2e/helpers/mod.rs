@@ -142,7 +142,9 @@ async fn create_app_with_mocked_aws(config: Config, pool: PgPool) -> Result<Rout
     let auth_service = Arc::new(AuthService::new(
         user_repo.clone(),
         refresh_token_repo.clone(),
-        config.clone(),
+        config.jwt_secret.clone(),
+        config.jwt_expiration_hours,
+        config.refresh_token_expiration_days,
     ));
     let feed_service = Arc::new(FeedService::new(
         feed_repo.clone(),

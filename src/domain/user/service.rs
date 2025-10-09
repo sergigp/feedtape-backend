@@ -1,41 +1,21 @@
-use crate::{
-    error::{AppError, AppResult},
-    infrastructure::repositories::{UsageRepository, UserRepository},
-};
+use crate::infrastructure::repositories::{UsageRecord, UsageRepository, UserRepository};
 use super::{LimitsDto, MeResponse, SubscriptionDto, UpdateSettingsDto, UsageDto, User, UserSettingsDto};
-use chrono::{Duration, Utc};
+use super::error::UserServiceError;
+use super::voice_mapping::get_voice_id;
+use chrono::{DateTime, Duration, Utc};
 use serde_json::json;
 use uuid::Uuid;
 use std::sync::Arc;
-use std::collections::HashMap;
+use async_trait::async_trait;
 
-/// Voice ID mapping - maps voice names to voice IDs
-fn get_voice_id(voice_name: &str) -> String {
-    let voice_map: HashMap<&str, &str> = [
-        ("Lucia", "voice_lucia_es"),
-        ("Sergio", "voice_sergio_es"),
-        ("Conchita", "voice_conchita_es"),
-        ("Matthew", "voice_matthew_en"),
-        ("Joanna", "voice_joanna_en"),
-        ("Amy", "voice_amy_en"),
-        ("Celine", "voice_celine_fr"),
-        ("Mathieu", "voice_mathieu_fr"),
-        ("Hans", "voice_hans_de"),
-        ("Marlene", "voice_marlene_de"),
-        ("Ricardo", "voice_ricardo_pt"),
-        ("Ines", "voice_ines_pt"),
-        ("Carla", "voice_carla_it"),
-        ("Giorgio", "voice_giorgio_it"),
-    ]
-    .iter()
-    .cloned()
-    .collect();
-
-    voice_map
-        .get(voice_name)
-        .unwrap_or(&"voice_lucia_es")
-        .to_string()
-}
+const CHARACTERS_PER_MINUTE: f32 = 1000.0;
+const FREE_TIER_CHARACTERS: i32 = 20000;
+const FREE_TIER_MINUTES: i32 = 20;
+const FREE_TIER_MAX_FEEDS: i32 = 3;
+const PRO_TIER_CHARACTERS: i32 = 200000;
+const PRO_TIER_MINUTES: i32 = 200;
+const PRO_TIER_MAX_FEEDS: i32 = 999;
+const SUPPORTED_LANGUAGES: &[&str] = &["es", "en", "fr", "de", "pt", "it"];
 
 pub struct UserService {
     user_repo: Arc<UserRepository>,
@@ -52,62 +32,107 @@ impl UserService {
             usage_repo,
         }
     }
+}
 
-    /// Get user profile with subscription and usage info
-    pub async fn get_user_profile(&self, user_id: Uuid) -> AppResult<MeResponse> {
-        // Get user
-        let user = self.user_repo.find_by_id(user_id)
-            .await?
-            .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+#[async_trait]
+pub trait UserServiceApi: Send + Sync {
+    async fn get_user_profile(&self, user_id: Uuid) -> Result<MeResponse, UserServiceError>;
 
-        // Get today's usage
-        let usage = self.usage_repo.get_today_usage(user_id).await?;
+    async fn update_user_settings(
+        &self,
+        user_id: Uuid,
+        updates: UpdateSettingsDto,
+    ) -> Result<(), UserServiceError>;
+}
+
+#[async_trait]
+impl UserServiceApi for UserService {
+    async fn get_user_profile(&self, user_id: Uuid) -> Result<MeResponse, UserServiceError> {
+        let user = self.find_user(user_id).await?;
+        let usage = self.get_today_usage(user_id).await?;
 
         let response = Self::build_me_response(&user, usage.as_ref())?;
 
         Ok(response)
     }
 
-    /// Update user settings
-    pub async fn update_user_settings(
+    async fn update_user_settings(
         &self,
         user_id: Uuid,
         updates: UpdateSettingsDto,
-    ) -> AppResult<()> {
-        // Get current user
-        let user = self.user_repo.find_by_id(user_id)
-            .await?
-            .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+    ) -> Result<(), UserServiceError> {
+        let user = self.find_user(user_id).await?;
 
-        // Parse current settings
         let mut settings: serde_json::Value = user.settings.clone();
 
-        // Apply updates
         if let Some(voice) = updates.voice {
             settings["voice"] = json!(voice);
         }
-        if let Some(language) = updates.language {
-            if !["es", "en", "fr", "de", "pt", "it"].contains(&language.as_str()) {
-                return Err(AppError::BadRequest(format!(
-                    "Invalid language: {}",
-                    language
-                )));
-            }
+        if let Some(language) = &updates.language {
+            self.validate_language(language)?;
             settings["language"] = json!(language);
         }
 
-        // Update in database
-        self.user_repo.update_settings(user_id, settings).await?;
+        self.user_repo
+            .update_settings(user_id, settings)
+            .await
+            .map_err(|e| UserServiceError::Dependency(e.to_string()))?;
 
         Ok(())
     }
+}
 
-    /// Build MeResponse from user and usage data
+impl UserService {
+    async fn find_user(&self, user_id: Uuid) -> Result<User, UserServiceError> {
+        self.user_repo
+            .find_by_id(user_id)
+            .await
+            .map_err(|e| UserServiceError::Dependency(e.to_string()))?
+            .ok_or(UserServiceError::NotFound)
+    }
+
+    async fn get_today_usage(&self, user_id: Uuid) -> Result<Option<UsageRecord>, UserServiceError> {
+        self.usage_repo
+            .get_today_usage(user_id)
+            .await
+            .map_err(|e| UserServiceError::Dependency(e.to_string()))
+    }
+
+    fn validate_language(&self, language: &str) -> Result<(), UserServiceError> {
+        if !SUPPORTED_LANGUAGES.contains(&language) {
+            return Err(UserServiceError::Invalid(format!(
+                "Invalid language: {}",
+                language
+            )));
+        }
+        Ok(())
+    }
+
+    fn calculate_limits(tier: crate::domain::user::SubscriptionTier) -> (i32, i32, i32) {
+        match tier {
+            crate::domain::user::SubscriptionTier::Free => {
+                (FREE_TIER_CHARACTERS, FREE_TIER_MINUTES, FREE_TIER_MAX_FEEDS)
+            }
+            crate::domain::user::SubscriptionTier::Pro => {
+                (PRO_TIER_CHARACTERS, PRO_TIER_MINUTES, PRO_TIER_MAX_FEEDS)
+            }
+        }
+    }
+
+    fn calculate_reset_time() -> DateTime<Utc> {
+        let now = Utc::now();
+        let tomorrow = now + Duration::days(1);
+        tomorrow
+            .date_naive()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_utc()
+    }
+
     fn build_me_response(
         user: &User,
-        usage: Option<&crate::infrastructure::repositories::UsageRecord>,
-    ) -> AppResult<MeResponse> {
-        // Parse settings
+        usage: Option<&UsageRecord>,
+    ) -> Result<MeResponse, UserServiceError> {
         let settings_json = &user.settings;
         let voice_name = settings_json
             .get("voice")
@@ -120,25 +145,12 @@ impl UserService {
             .unwrap_or("en")
             .to_string();
 
-        // Calculate limits based on tier
-        let (characters_limit, minutes_limit, max_feeds) = match user.subscription_tier {
-            crate::domain::user::SubscriptionTier::Free => (20000, 20, 3),
-            crate::domain::user::SubscriptionTier::Pro => (200000, 200, 999),
-        };
+        let (characters_limit, minutes_limit, max_feeds) = Self::calculate_limits(user.subscription_tier.clone());
 
-        // Get usage stats
         let characters_used_today = usage.map(|u| u.characters_used).unwrap_or(0);
-        // Calculate minutes from characters (1000 chars = 1 minute)
-        let minutes_used_today = characters_used_today as f32 / 1000.0;
+        let minutes_used_today = characters_used_today as f32 / CHARACTERS_PER_MINUTE;
 
-        // Calculate reset time (midnight tonight)
-        let now = Utc::now();
-        let tomorrow = now + Duration::days(1);
-        let resets_at = tomorrow
-            .date_naive()
-            .and_hms_opt(0, 0, 0)
-            .unwrap()
-            .and_utc();
+        let resets_at = Self::calculate_reset_time();
 
         Ok(MeResponse {
             id: user.id,

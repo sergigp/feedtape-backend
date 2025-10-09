@@ -1,8 +1,10 @@
+pub mod error;
 pub mod model;
 pub mod service;
 
+pub use error::FeedServiceError;
 pub use model::Feed;
-pub use service::FeedService;
+pub use service::{FeedService, FeedServiceApi};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

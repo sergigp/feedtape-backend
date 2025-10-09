@@ -81,7 +81,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let auth_service = Arc::new(feedtape_backend::domain::auth::AuthService::new(
         user_repo.clone(),
         refresh_token_repo.clone(),
-        config.clone(),
+        config.jwt_secret.clone(),
+        config.jwt_expiration_hours,
+        config.refresh_token_expiration_days,
     ));
     let feed_service = Arc::new(feedtape_backend::domain::feed::FeedService::new(
         feed_repo.clone(),
