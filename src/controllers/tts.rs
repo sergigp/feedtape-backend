@@ -94,7 +94,7 @@ impl TtsController {
         );
         headers.insert(
             "X-Language-Detected",
-            result.language_detected.parse().unwrap(),
+            result.language_detected.to_string().parse().unwrap(),
         );
         headers.insert(
             "X-Usage-Remaining",
