@@ -30,16 +30,57 @@ pub fn detect_language(text: &str) -> String {
     }
 }
 
-/// Get the appropriate Polly voice ID for a language and gender
-pub fn get_voice_for_language(language: &str, _quality: &str) -> &'static str {
-    // For MVP, using one voice per language (can expand later)
-    match language {
-        "en" => "Joanna", // English (US, Female, Neural)
-        "es" => "Lucia",  // Spanish (Female, Neural)
-        "fr" => "Lea",    // French (Female, Neural)
-        "de" => "Vicki",  // German (Female, Neural)
-        "it" => "Bianca", // Italian (Female, Neural)
-        "pt" => "Ines",   // Portuguese (Female, Neural)
-        _ => "Lucia",     // Default to Spanish
+/// Get the appropriate Polly voice ID for a language and quality
+pub fn get_voice_for_language(language: &str, quality: &str) -> &'static str {
+    // Return voice based on language and quality (neural vs standard)
+    match (language, quality) {
+        // Neural voices
+        ("en", "neural") => "Joanna",
+        ("es", "neural") => "Lupe",   // Lucia doesn't support neural
+        ("fr", "neural") => "Lea",
+        ("de", "neural") => "Vicki",
+        ("it", "neural") => "Bianca",
+        ("pt", "neural") => "Ines",
+
+        // Standard voices (fallback)
+        ("en", _) => "Joanna",
+        ("es", _) => "Lucia",
+        ("fr", _) => "Lea",
+        ("de", _) => "Vicki",
+        ("it", _) => "Bianca",
+        ("pt", _) => "Ines",
+
+        // Default
+        _ => "Lucia",
     }
+}
+
+/// Check if a voice supports neural engine
+pub fn is_voice_neural_compatible(voice: &str) -> bool {
+    // List of voices that support neural engine
+    // Based on AWS Polly documentation
+    const NEURAL_VOICES: &[&str] = &[
+        // English
+        "Joanna", "Matthew", "Ivy", "Kendra", "Kimberly", "Salli", "Joey", "Justin", "Kevin",
+        // Spanish
+        "Lupe", "Pedro", "Sergio",
+        // French
+        "Lea", "Remi",
+        // German
+        "Vicki", "Daniel",
+        // Italian
+        "Bianca", "Adriano",
+        // Portuguese
+        "Ines", "Camila", "Vitoria", "Thiago",
+        // Japanese
+        "Takumi", "Kazuha", "Tomoko",
+        // Korean
+        "Seoyeon",
+        // Mandarin Chinese
+        "Zhiyu",
+        // Arabic
+        "Hala", "Zayd",
+    ];
+
+    NEURAL_VOICES.contains(&voice)
 }

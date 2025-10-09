@@ -61,14 +61,11 @@ components:
         settings:
           type: object
           properties:
-            voice:
-              type: string
-              description: Voice ID
-              example: "voice_lucia_es"
             language:
               type: string
               enum: [es, en, fr, de, pt, it]
               default: en
+              description: Preferred language for TTS
         subscription:
           type: object
           properties:
@@ -130,30 +127,23 @@ components:
       type: object
       required:
         - text
+        - link
       properties:
         text:
           type: string
           minLength: 1
           maxLength: 10000
           description: Article content to convert to speech
+        link:
+          type: string
+          format: uri
+          description: URL of the article being synthesized (for analytics)
+          example: "https://blog.example.com/article-title"
         language:
           type: string
           enum: [auto, es, en, fr, de, pt, it]
           default: auto
           description: Language for TTS or auto-detect
-        voice:
-          type: string
-          description: Voice ID (overrides user default)
-          example: "Lucia"
-        speed:
-          type: number
-          minimum: 0.5
-          maximum: 2.0
-          description: Playback speed (overrides user default)
-        quality:
-          type: string
-          enum: [standard, neural]
-          description: Voice quality (overrides user default)
 
     TokenResponse:
       type: object
@@ -318,7 +308,6 @@ paths:
               example:
                 id: "123e4567-e89b-12d3-a456-426614174000"
                 settings:
-                  voice: "voice_lucia_es"
                   language: "en"
                 subscription:
                   tier: "free"
@@ -353,16 +342,12 @@ paths:
                 settings:
                   type: object
                   properties:
-                    voice:
-                      type: string
-                      description: Voice ID
-                      example: "voice_sergio_es"
                     language:
                       type: string
                       enum: [es, en, fr, de, pt, it]
+                      description: Preferred language for TTS
             example:
               settings:
-                voice: "voice_sergio_es"
                 language: "es"
       responses:
         '204':
@@ -520,17 +505,16 @@ paths:
               $ref: '#/components/schemas/TtsRequest'
             examples:
               simple:
-                summary: Basic request
+                summary: Basic request with auto-detect
                 value:
                   text: "Este es el contenido del artículo"
-              with_preferences:
-                summary: With voice preferences
+                  link: "https://blog.example.com/articulo-ejemplo"
+              with_language:
+                summary: With explicit language
                 value:
                   text: "Article content here"
+                  link: "https://blog.example.com/article-title"
                   language: "en"
-                  voice: "Lucia"
-                  speed: 1.25
-                  quality: "neural"
       responses:
         '200':
           description: Audio generated
@@ -568,13 +552,13 @@ paths:
                 type: string
                 format: binary
         '402':
-          description: Upgrade required for requested features
+          description: Daily usage limit exceeded
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
               example:
-                message: "Neural voices require Pro subscription"
+                message: "Daily character limit exceeded. Upgrade to Pro for higher limits."
         '413':
           description: Text too long
           content:
