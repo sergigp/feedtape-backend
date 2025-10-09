@@ -77,7 +77,7 @@ pub fn detect_language(text: &str) -> LanguageCode {
 pub fn get_voice_for_language(language: LanguageCode) -> &'static str {
     match language {
         LanguageCode::English => "Joanna",
-        LanguageCode::Spanish => "Lupe", // Lucia doesn't support neural
+        LanguageCode::Spanish => "Lupe",
         LanguageCode::French => "Lea",
         LanguageCode::German => "Vicki",
         LanguageCode::Italian => "Bianca",
