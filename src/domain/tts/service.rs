@@ -157,7 +157,7 @@ impl TtsService {
             .text(text)
             .voice_id(voice_id)
             .output_format(OutputFormat::Mp3)
-            .engine(engine)
+            .engine(engine.clone())
             .send()
             .await
             .map_err(|e| {
