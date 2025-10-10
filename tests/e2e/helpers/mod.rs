@@ -65,6 +65,7 @@ impl TestContext {
             github_client_id: "test_github_client_id".to_string(),
             github_client_secret: "test_github_client_secret".to_string(),
             github_redirect_uri: "http://localhost:8080/auth/callback/github".to_string(),
+            tts_cache_enabled: false, // Disable cache in tests to avoid test pollution
         };
 
         // Create app with mocked AWS
@@ -158,6 +159,7 @@ async fn create_app_with_mocked_aws(config: Config, pool: PgPool) -> Result<Rout
         user_repo.clone(),
         usage_repo.clone(),
         polly_client.clone(),
+        false, // Disable cache in tests
     ));
 
     // Instantiate controllers

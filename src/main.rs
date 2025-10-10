@@ -97,6 +97,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         user_repo.clone(),
         usage_repo.clone(),
         polly_client.clone(),
+        config.tts_cache_enabled,
     ));
 
     // 4. Instantiate controllers (inject services)

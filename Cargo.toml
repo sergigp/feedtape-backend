@@ -56,6 +56,9 @@ thiserror = "1.0"
 # Async traits
 async-trait = "0.1"
 
+# Caching
+moka = { version = "0.12", features = ["future"] }
+
 [dev-dependencies]
 # Test containers for integration tests
 testcontainers = "0.15"

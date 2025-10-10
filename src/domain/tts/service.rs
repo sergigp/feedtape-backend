@@ -11,6 +11,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use html2text::from_read;
 use lingua::{LanguageDetector, LanguageDetectorBuilder};
+use moka::future::Cache;
+use std::time::Duration;
 
 const CHARACTERS_PER_MINUTE: f32 = 1000.0;
 const MAX_BATCH_SIZE: usize = 3000;
@@ -28,6 +30,7 @@ pub struct TtsService {
     usage_repo: Arc<UsageRepository>,
     polly_client: Arc<PollyClient>,
     language_detector: LanguageDetector,
+    cache: Option<Cache<String, TtsSynthesisResult>>,
 }
 
 impl TtsService {
@@ -35,15 +38,29 @@ impl TtsService {
         user_repo: Arc<UserRepository>,
         usage_repo: Arc<UsageRepository>,
         polly_client: Arc<PollyClient>,
+        cache_enabled: bool,
     ) -> Self {
         // Create language detector with the languages we support in Cargo.toml
         let language_detector = LanguageDetectorBuilder::from_all_languages().build();
+
+        // Initialize cache if enabled
+        let cache = if cache_enabled {
+            Some(
+                Cache::builder()
+                    .max_capacity(100)
+                    .time_to_idle(Duration::from_secs(30 * 60)) // 30 minutes, refreshes on access
+                    .build()
+            )
+        } else {
+            None
+        };
 
         Self {
             user_repo,
             usage_repo,
             polly_client,
             language_detector,
+            cache,
         }
     }
 }
@@ -81,6 +98,20 @@ impl TtsServiceApi for TtsService {
             text_length = text.len(),
             "TTS synthesis request"
         );
+
+        // Check cache first (if enabled)
+        if let Some(cache) = &self.cache {
+            if let Some(cached_result) = cache.get(&link).await {
+                tracing::info!(
+                    link = %link,
+                    cached_audio_size = cached_result.audio_data.len(),
+                    cached_char_count = cached_result.char_count,
+                    cached_language = %cached_result.language_detected,
+                    "TTS cache hit - returning cached audio"
+                );
+                return Ok(cached_result);
+            }
+        }
 
         // 1. Clean the text (remove HTML, URLs, normalize whitespace)
         let cleaned_text = self.clean_text(&text);
@@ -120,15 +151,27 @@ impl TtsServiceApi for TtsService {
         // 7. Track usage
         self.track_usage(user_id, char_count).await?;
 
-        // 8. Calculate duration and return result
+        // 8. Calculate duration and create result
         let duration_minutes = char_count as f32 / CHARACTERS_PER_MINUTE;
 
-        Ok(TtsSynthesisResult {
+        let result = TtsSynthesisResult {
             audio_data,
             language_detected: detected_language,
             char_count,
             duration_minutes,
-        })
+        };
+
+        // 9. Cache the result if caching is enabled
+        if let Some(cache) = &self.cache {
+            cache.insert(link.clone(), result.clone()).await;
+            tracing::info!(
+                link = %link,
+                audio_size = result.audio_data.len(),
+                "TTS result cached"
+            );
+        }
+
+        Ok(result)
     }
 }
 
