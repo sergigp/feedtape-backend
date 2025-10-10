@@ -16,6 +16,8 @@ pub struct Config {
     pub github_client_id: String,
     pub github_client_secret: String,
     pub github_redirect_uri: String,
+    // TTS Cache
+    pub tts_cache_enabled: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -67,6 +69,11 @@ impl Config {
             github_client_id: env::var("GITHUB_CLIENT_ID")?,
             github_client_secret: env::var("GITHUB_CLIENT_SECRET")?,
             github_redirect_uri: env::var("GITHUB_REDIRECT_URI")?,
+            tts_cache_enabled: env::var("TTS_CACHE_ENABLED")
+                .unwrap_or_else(|_| "false".to_string())
+                .parse::<String>()
+                .map(|s| s.to_lowercase() == "true")
+                .unwrap_or(false),
         };
 
         Ok(config)
