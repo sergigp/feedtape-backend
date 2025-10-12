@@ -6,10 +6,10 @@ use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: String,  // User ID
+    pub sub: String, // User ID
     pub email: String,
-    pub exp: i64,     // Expiration time
-    pub iat: i64,     // Issued at
+    pub exp: i64, // Expiration time
+    pub iat: i64, // Issued at
 }
 
 pub struct JwtManager {

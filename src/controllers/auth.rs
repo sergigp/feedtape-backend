@@ -1,12 +1,12 @@
 use axum::{extract::State, http::StatusCode, Extension, Json};
 use std::sync::Arc;
 
+use crate::domain::auth::{RefreshTokenRequest, TokenResponse};
 use crate::{
+    domain::auth::{AuthService, AuthServiceApi},
     error::AppResult,
     infrastructure::auth::AuthUser,
-    domain::auth::{AuthService, AuthServiceApi},
 };
-use crate::domain::auth::{RefreshTokenRequest, TokenResponse};
 
 pub struct AuthController {
     auth_service: Arc<AuthService>,
@@ -22,7 +22,10 @@ impl AuthController {
         State(controller): State<Arc<AuthController>>,
         Json(request): Json<RefreshTokenRequest>,
     ) -> AppResult<Json<TokenResponse>> {
-        let response = controller.auth_service.refresh_token(&request.refresh_token).await?;
+        let response = controller
+            .auth_service
+            .refresh_token(&request.refresh_token)
+            .await?;
         Ok(Json(response))
     }
 
@@ -31,7 +34,10 @@ impl AuthController {
         State(controller): State<Arc<AuthController>>,
         Json(request): Json<RefreshTokenRequest>,
     ) -> AppResult<StatusCode> {
-        controller.auth_service.logout(&request.refresh_token).await?;
+        controller
+            .auth_service
+            .logout(&request.refresh_token)
+            .await?;
         Ok(StatusCode::NO_CONTENT)
     }
 
@@ -40,7 +46,10 @@ impl AuthController {
         State(controller): State<Arc<AuthController>>,
         Extension(auth_user): Extension<AuthUser>,
     ) -> AppResult<StatusCode> {
-        controller.auth_service.logout_all(auth_user.user_id).await?;
+        controller
+            .auth_service
+            .logout_all(auth_user.user_id)
+            .await?;
         Ok(StatusCode::NO_CONTENT)
     }
 }

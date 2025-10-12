@@ -1,7 +1,7 @@
 use crate::e2e::helpers;
 
 use chrono::Utc;
-use helpers::{generate_test_jwt, TestContext, api_client::ApiResponse};
+use helpers::{api_client::ApiResponse, generate_test_jwt, TestContext};
 use hyper::StatusCode;
 use serde_json::json;
 use serial_test::serial;
@@ -38,15 +38,24 @@ async fn it_should_refresh_access_token() {
     response.assert_status(StatusCode::OK);
 
     let body = response.body.as_ref().unwrap();
-    let new_token = body.get("token").and_then(|v| v.as_str())
+    let new_token = body
+        .get("token")
+        .and_then(|v| v.as_str())
         .expect("Missing token field");
-    let new_refresh_token = body.get("refresh_token").and_then(|v| v.as_str())
+    let new_refresh_token = body
+        .get("refresh_token")
+        .and_then(|v| v.as_str())
         .expect("Missing refresh_token field");
-    let expires_in = body.get("expires_in").and_then(|v| v.as_i64())
+    let expires_in = body
+        .get("expires_in")
+        .and_then(|v| v.as_i64())
         .expect("Missing expires_in field");
 
     assert!(!new_token.is_empty(), "Token should not be empty");
-    assert!(!new_refresh_token.is_empty(), "Refresh token should not be empty");
+    assert!(
+        !new_refresh_token.is_empty(),
+        "Refresh token should not be empty"
+    );
     assert!(expires_in > 0, "expires_in should be positive");
 
     // Verify it matches expected structure
@@ -61,7 +70,10 @@ async fn it_should_refresh_access_token() {
     );
 
     // New tokens should be different from the old one
-    assert_ne!(new_refresh_token, refresh_token, "New refresh token should be different");
+    assert_ne!(
+        new_refresh_token, refresh_token,
+        "New refresh token should be different"
+    );
     assert!(!new_token.is_empty());
 }
 
@@ -132,12 +144,22 @@ async fn it_should_logout_single_session() {
     let refresh_token2 = "refresh_token_2";
 
     ctx.fixtures
-        .create_refresh_token(user.id, refresh_token1, Utc::now() + chrono::Duration::days(30), false)
+        .create_refresh_token(
+            user.id,
+            refresh_token1,
+            Utc::now() + chrono::Duration::days(30),
+            false,
+        )
         .await
         .unwrap();
 
     ctx.fixtures
-        .create_refresh_token(user.id, refresh_token2, Utc::now() + chrono::Duration::days(30), false)
+        .create_refresh_token(
+            user.id,
+            refresh_token2,
+            Utc::now() + chrono::Duration::days(30),
+            false,
+        )
         .await
         .unwrap();
 
@@ -196,12 +218,22 @@ async fn it_should_logout_all_sessions() {
     let refresh_token2 = "refresh_token_2";
 
     ctx.fixtures
-        .create_refresh_token(user.id, refresh_token1, Utc::now() + chrono::Duration::days(30), false)
+        .create_refresh_token(
+            user.id,
+            refresh_token1,
+            Utc::now() + chrono::Duration::days(30),
+            false,
+        )
         .await
         .unwrap();
 
     ctx.fixtures
-        .create_refresh_token(user.id, refresh_token2, Utc::now() + chrono::Duration::days(30), false)
+        .create_refresh_token(
+            user.id,
+            refresh_token2,
+            Utc::now() + chrono::Duration::days(30),
+            false,
+        )
         .await
         .unwrap();
 
@@ -278,7 +310,6 @@ async fn it_should_include_request_id_header() {
     assert!(!request_id.is_empty());
 }
 
-
 #[tokio::test]
 #[serial]
 async fn it_should_handle_malformed_jwt() {
@@ -292,11 +323,7 @@ async fn it_should_handle_malformed_jwt() {
     ];
 
     for token in malformed_tokens {
-        let response = ctx
-            .client
-            .get_with_auth("/api/me", token)
-            .await
-            .unwrap();
+        let response = ctx.client.get_with_auth("/api/me", token).await.unwrap();
 
         response.assert_status(StatusCode::UNAUTHORIZED);
     }
@@ -331,16 +358,12 @@ async fn it_should_validate_bearer_token_format() {
     // Test various invalid Authorization header formats
     let invalid_headers = vec![
         ("Authorization", "InvalidScheme token123"),
-        ("Authorization", "Bearer"), // Missing token
+        ("Authorization", "Bearer"),   // Missing token
         ("Authorization", "token123"), // Missing Bearer prefix
     ];
 
     for (_header_name, _header_value) in invalid_headers {
-        let response = ctx
-            .client
-            .get("/api/me")
-            .await
-            .unwrap();
+        let response = ctx.client.get("/api/me").await.unwrap();
 
         // The test client doesn't directly support custom headers in this way,
         // but the middleware should reject these formats
@@ -356,7 +379,12 @@ async fn it_should_handle_concurrent_refresh_requests() {
 
     let refresh_token = "concurrent_refresh_token";
     ctx.fixtures
-        .create_refresh_token(user.id, refresh_token, Utc::now() + chrono::Duration::days(30), false)
+        .create_refresh_token(
+            user.id,
+            refresh_token,
+            Utc::now() + chrono::Duration::days(30),
+            false,
+        )
         .await
         .unwrap();
 
@@ -410,7 +438,12 @@ async fn it_should_clean_expired_tokens_on_refresh() {
     // Create a valid token
     let valid_token = "valid_refresh_token";
     ctx.fixtures
-        .create_refresh_token(user.id, valid_token, Utc::now() + chrono::Duration::days(30), false)
+        .create_refresh_token(
+            user.id,
+            valid_token,
+            Utc::now() + chrono::Duration::days(30),
+            false,
+        )
         .await
         .unwrap();
 

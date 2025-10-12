@@ -1,8 +1,8 @@
+use crate::error::AppResult;
 use crate::infrastructure::db::DbPool;
-use crate::{error::AppResult};
 use chrono::{DateTime, Duration, Utc};
-use uuid::Uuid;
 use std::sync::Arc;
+use uuid::Uuid;
 
 pub struct RefreshTokenRepository {
     pool: Arc<DbPool>,
@@ -14,12 +14,7 @@ impl RefreshTokenRepository {
     }
 
     /// Create a new refresh token
-    pub async fn create(
-        &self,
-        user_id: Uuid,
-        token: &str,
-        expiration_days: i64,
-    ) -> AppResult<()> {
+    pub async fn create(&self, user_id: Uuid, token: &str, expiration_days: i64) -> AppResult<()> {
         let pool = self.pool.as_ref();
         let id = Uuid::new_v4();
         let now = Utc::now();
@@ -43,10 +38,7 @@ impl RefreshTokenRepository {
     }
 
     /// Find a valid (non-revoked, non-expired) refresh token
-    pub async fn find_valid(
-        &self,
-        token: &str,
-    ) -> AppResult<Option<(Uuid, DateTime<Utc>)>> {
+    pub async fn find_valid(&self, token: &str) -> AppResult<Option<(Uuid, DateTime<Utc>)>> {
         let pool = self.pool.as_ref();
         let result = sqlx::query_as::<_, (Uuid, DateTime<Utc>)>(
             r#"
@@ -65,10 +57,7 @@ impl RefreshTokenRepository {
     }
 
     /// Check if a refresh token exists and get its status
-    pub async fn check_token_status(
-        &self,
-        token: &str,
-    ) -> AppResult<Option<(bool, bool)>> {
+    pub async fn check_token_status(&self, token: &str) -> AppResult<Option<(bool, bool)>> {
         let pool = self.pool.as_ref();
         let result = sqlx::query_as::<_, (bool, DateTime<Utc>)>(
             r#"

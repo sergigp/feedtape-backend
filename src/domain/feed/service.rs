@@ -1,10 +1,10 @@
-use crate::infrastructure::repositories::{FeedRepository, UserRepository};
-use crate::domain::user::{SubscriptionTier, User};
-use crate::domain::feed::{CreateFeedRequest, FeedResponse, UpdateFeedRequest, Feed};
 use super::error::FeedServiceError;
-use uuid::Uuid;
-use std::sync::Arc;
+use crate::domain::feed::{CreateFeedRequest, Feed, FeedResponse, UpdateFeedRequest};
+use crate::domain::user::{SubscriptionTier, User};
+use crate::infrastructure::repositories::{FeedRepository, UserRepository};
 use async_trait::async_trait;
+use std::sync::Arc;
+use uuid::Uuid;
 
 const MAX_FEEDS_FREE: i64 = 3;
 const MAX_FEEDS_PRO: i64 = 999;
@@ -15,10 +15,7 @@ pub struct FeedService {
 }
 
 impl FeedService {
-    pub fn new(
-        feed_repo: Arc<FeedRepository>,
-        user_repo: Arc<UserRepository>,
-    ) -> Self {
+    pub fn new(feed_repo: Arc<FeedRepository>, user_repo: Arc<UserRepository>) -> Self {
         Self {
             feed_repo,
             user_repo,
@@ -49,7 +46,10 @@ pub trait FeedServiceApi: Send + Sync {
 #[async_trait]
 impl FeedServiceApi for FeedService {
     async fn get_user_feeds(&self, user_id: Uuid) -> Result<Vec<FeedResponse>, FeedServiceError> {
-        let feeds = self.feed_repo.find_by_user(user_id).await
+        let feeds = self
+            .feed_repo
+            .find_by_user(user_id)
+            .await
             .map_err(|e| FeedServiceError::Dependency(e.to_string()))?;
         Ok(feeds.into_iter().map(FeedResponse::from).collect())
     }
@@ -63,13 +63,17 @@ impl FeedServiceApi for FeedService {
 
         self.validate_url(&request.url)?;
 
-        if self.feed_repo.exists_for_user(user_id, &request.url).await
+        if self
+            .feed_repo
+            .exists_for_user(user_id, &request.url)
+            .await
             .map_err(|e| FeedServiceError::Dependency(e.to_string()))?
         {
             return Err(FeedServiceError::Conflict);
         }
 
-        self.check_feed_limit(user_id, user.subscription_tier).await?;
+        self.check_feed_limit(user_id, user.subscription_tier)
+            .await?;
 
         self.feed_repo
             .create(request.id, user_id, &request.url, &request.title)
@@ -128,7 +132,10 @@ impl FeedService {
         user_id: Uuid,
         tier: SubscriptionTier,
     ) -> Result<(), FeedServiceError> {
-        let feed_count = self.feed_repo.count_by_user(user_id).await
+        let feed_count = self
+            .feed_repo
+            .count_by_user(user_id)
+            .await
             .map_err(|e| FeedServiceError::Dependency(e.to_string()))?;
 
         let max_feeds = match tier {
@@ -151,7 +158,8 @@ impl FeedService {
         feed_id: Uuid,
         user_id: Uuid,
     ) -> Result<Feed, FeedServiceError> {
-        let feed = self.feed_repo
+        let feed = self
+            .feed_repo
             .find_by_id(feed_id)
             .await
             .map_err(|e| FeedServiceError::Dependency(e.to_string()))?

@@ -3,8 +3,8 @@ use crate::{
     domain::feed::Feed,
     error::{AppError, AppResult},
 };
-use uuid::Uuid;
 use std::sync::Arc;
+use uuid::Uuid;
 
 pub struct FeedRepository {
     pool: Arc<DbPool>,
@@ -87,13 +87,7 @@ impl FeedRepository {
     }
 
     /// Create a new feed with client-provided ID
-    pub async fn create(
-        &self,
-        id: Uuid,
-        user_id: Uuid,
-        url: &str,
-        title: &str,
-    ) -> AppResult<()> {
+    pub async fn create(&self, id: Uuid, user_id: Uuid, url: &str, title: &str) -> AppResult<()> {
         let pool = self.pool.as_ref();
         let now = chrono::Utc::now();
 
@@ -123,11 +117,7 @@ impl FeedRepository {
     }
 
     /// Update a feed's title
-    pub async fn update_title(
-        &self,
-        feed_id: Uuid,
-        title: Option<&str>,
-    ) -> AppResult<()> {
+    pub async fn update_title(&self, feed_id: Uuid, title: Option<&str>) -> AppResult<()> {
         let pool = self.pool.as_ref();
         sqlx::query(
             r#"

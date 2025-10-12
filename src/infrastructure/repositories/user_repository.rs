@@ -1,11 +1,8 @@
-use crate::{
-    domain::user::User,
-    error::AppResult,
-};
-use serde_json::json;
-use uuid::Uuid;
 use crate::infrastructure::db::DbPool;
+use crate::{domain::user::User, error::AppResult};
+use serde_json::json;
 use std::sync::Arc;
+use uuid::Uuid;
 
 pub struct UserRepository {
     pool: Arc<DbPool>,
@@ -57,12 +54,7 @@ impl UserRepository {
     }
 
     /// Create a new user
-    pub async fn create(
-        &self,
-        email: &str,
-        provider: &str,
-        provider_id: &str,
-    ) -> AppResult<User> {
+    pub async fn create(&self, email: &str, provider: &str, provider_id: &str) -> AppResult<User> {
         let pool = self.pool.as_ref();
         let id = Uuid::new_v4();
         let now = chrono::Utc::now();

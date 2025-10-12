@@ -47,9 +47,7 @@ impl TestContext {
             .connect(&database_url)
             .await?;
 
-        sqlx::migrate!("./migrations")
-            .run(&pool)
-            .await?;
+        sqlx::migrate!("./migrations").run(&pool).await?;
 
         // Create test configuration
         let config = Config {
@@ -109,12 +107,22 @@ impl TestContext {
 async fn create_app_with_mocked_aws(config: Config, pool: PgPool) -> Result<Router> {
     use axum::{middleware, routing::get};
     use feedtape_backend::{
-        controllers::{auth::AuthController, feed::FeedController, health, oauth::OAuthController, tts::TtsController, user::UserController},
-        domain::{auth::AuthService, feed::FeedService, tts::TtsService, user::UserService},
+        controllers::{
+            auth::AuthController, feed::FeedController,
+            feed_suggestions::FeedSuggestionsController, health, oauth::OAuthController,
+            tts::TtsController, user::UserController,
+        },
+        domain::{
+            auth::AuthService, feed::FeedService, feed_suggestions::FeedSuggestionsService,
+            tts::TtsService, user::UserService,
+        },
         infrastructure::{
             auth::{auth_middleware, request_id_middleware},
             oauth::GitHubOAuthClient,
-            repositories::{FeedRepository, RefreshTokenRepository, UsageRepository, UserRepository},
+            repositories::{
+                FeedRepository, HardcodedFeedSuggestionsRepository, RefreshTokenRepository,
+                UsageRepository, UserRepository,
+            },
         },
     };
     use tower_http::trace::TraceLayer;
@@ -129,6 +137,7 @@ async fn create_app_with_mocked_aws(config: Config, pool: PgPool) -> Result<Rout
     // Instantiate repositories
     let user_repo = Arc::new(UserRepository::new(pool.clone()));
     let feed_repo = Arc::new(FeedRepository::new(pool.clone()));
+    let feed_suggestions_repo = Arc::new(HardcodedFeedSuggestionsRepository::new());
     let refresh_token_repo = Arc::new(RefreshTokenRepository::new(pool.clone()));
     let usage_repo = Arc::new(UsageRepository::new(pool.clone()));
 
@@ -147,20 +156,15 @@ async fn create_app_with_mocked_aws(config: Config, pool: PgPool) -> Result<Rout
         config.jwt_expiration_hours,
         config.refresh_token_expiration_days,
     ));
-    let feed_service = Arc::new(FeedService::new(
-        feed_repo.clone(),
-        user_repo.clone(),
-    ));
-    let user_service = Arc::new(UserService::new(
-        user_repo.clone(),
-        usage_repo.clone(),
-    ));
+    let feed_service = Arc::new(FeedService::new(feed_repo.clone(), user_repo.clone()));
+    let user_service = Arc::new(UserService::new(user_repo.clone(), usage_repo.clone()));
     let tts_service = Arc::new(TtsService::new(
         user_repo.clone(),
         usage_repo.clone(),
         polly_client.clone(),
         false, // Disable cache in tests
     ));
+    let feed_suggestions_service = Arc::new(FeedSuggestionsService::new(feed_suggestions_repo));
 
     // Instantiate controllers
     let auth_controller = Arc::new(AuthController::new(auth_service.clone()));
@@ -176,10 +180,15 @@ async fn create_app_with_mocked_aws(config: Config, pool: PgPool) -> Result<Rout
         user_service,
         usage_repo.clone(),
     ));
+    let feed_suggestions_controller =
+        Arc::new(FeedSuggestionsController::new(feed_suggestions_service));
 
     // TTS routes (need auth)
     let tts_routes = Router::new()
-        .route("/api/tts/synthesize", axum::routing::post(TtsController::synthesize))
+        .route(
+            "/api/tts/synthesize",
+            axum::routing::post(TtsController::synthesize),
+        )
         .with_state(tts_controller.clone())
         .layer(middleware::from_fn_with_state(
             (user_repo.clone(), config.clone()),
@@ -197,19 +206,28 @@ async fn create_app_with_mocked_aws(config: Config, pool: PgPool) -> Result<Rout
 
     // Auth routes (public - no auth required)
     let auth_routes = Router::new()
-        .route("/auth/refresh", axum::routing::post(AuthController::refresh))
+        .route(
+            "/auth/refresh",
+            axum::routing::post(AuthController::refresh),
+        )
         .route("/auth/logout", axum::routing::post(AuthController::logout))
         .with_state(auth_controller.clone());
 
     // OAuth routes (public - no auth required)
     let oauth_routes = Router::new()
         .route("/auth/oauth/github", get(OAuthController::initiate_github))
-        .route("/auth/callback/github", get(OAuthController::github_callback))
+        .route(
+            "/auth/callback/github",
+            get(OAuthController::github_callback),
+        )
         .with_state(oauth_controller.clone());
 
     // Logout all requires auth
     let auth_protected_routes = Router::new()
-        .route("/auth/logout/all", axum::routing::post(AuthController::logout_all))
+        .route(
+            "/auth/logout/all",
+            axum::routing::post(AuthController::logout_all),
+        )
         .with_state(auth_controller.clone())
         .layer(middleware::from_fn_with_state(
             (user_repo.clone(), config.clone()),
@@ -218,7 +236,10 @@ async fn create_app_with_mocked_aws(config: Config, pool: PgPool) -> Result<Rout
 
     // User routes (require authentication)
     let user_routes = Router::new()
-        .route("/api/me", get(UserController::get_me).patch(UserController::update_me))
+        .route(
+            "/api/me",
+            get(UserController::get_me).patch(UserController::update_me),
+        )
         .with_state(user_controller.clone())
         .layer(middleware::from_fn_with_state(
             (user_repo.clone(), config.clone()),
@@ -227,12 +248,27 @@ async fn create_app_with_mocked_aws(config: Config, pool: PgPool) -> Result<Rout
 
     // Feed routes (require authentication)
     let feed_routes = Router::new()
-        .route("/api/feeds", get(FeedController::list_feeds).post(FeedController::create_feed))
+        .route(
+            "/api/feeds",
+            get(FeedController::list_feeds).post(FeedController::create_feed),
+        )
         .route(
             "/api/feeds/:feedId",
             axum::routing::put(FeedController::update_feed).delete(FeedController::delete_feed),
         )
         .with_state(feed_controller.clone())
+        .layer(middleware::from_fn_with_state(
+            (user_repo.clone(), config.clone()),
+            auth_middleware,
+        ));
+
+    // Feed suggestions routes (require authentication)
+    let feed_suggestions_routes = Router::new()
+        .route(
+            "/api/feed-suggestions",
+            get(FeedSuggestionsController::get_suggestions),
+        )
+        .with_state(feed_suggestions_controller.clone())
         .layer(middleware::from_fn_with_state(
             (user_repo.clone(), config.clone()),
             auth_middleware,
@@ -248,6 +284,7 @@ async fn create_app_with_mocked_aws(config: Config, pool: PgPool) -> Result<Rout
         .merge(auth_protected_routes)
         .merge(user_routes)
         .merge(feed_routes)
+        .merge(feed_suggestions_routes)
         .merge(tts_routes)
         .merge(usage_routes)
         .layer(middleware::from_fn(request_id_middleware))

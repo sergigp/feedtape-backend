@@ -5,13 +5,11 @@ use axum::{
 };
 use std::sync::Arc;
 
+use crate::infrastructure::config::Config;
 use crate::{
-    domain::auth::JwtManager,
-    error::AppError,
-    infrastructure::repositories::UserRepository,
+    domain::auth::JwtManager, error::AppError, infrastructure::repositories::UserRepository,
 };
 use uuid::Uuid;
-use crate::infrastructure::config::Config;
 
 /// User context injected into request extensions after authentication
 #[derive(Debug, Clone)]
@@ -43,17 +41,15 @@ pub async fn auth_middleware(
     let token = &auth_header[7..]; // Skip "Bearer "
 
     // Validate JWT token
-    let jwt_manager = JwtManager::new(
-        config.jwt_secret.clone(),
-        config.jwt_expiration_hours,
-    );
+    let jwt_manager = JwtManager::new(config.jwt_secret.clone(), config.jwt_expiration_hours);
 
     let claims = jwt_manager.validate_token(token)?;
     let user_id = Uuid::parse_str(&claims.sub)
         .map_err(|_| AppError::Unauthorized("Invalid user ID in token".to_string()))?;
 
     // Verify user exists in database
-    let user = user_repo.find_by_id(user_id)
+    let user = user_repo
+        .find_by_id(user_id)
         .await?
         .ok_or_else(|| AppError::Unauthorized("User not found".to_string()))?;
 

@@ -55,7 +55,9 @@ impl AppError {
     /// Get the HTTP status code for this error
     pub fn status_code(&self) -> StatusCode {
         match self {
-            Self::Unauthorized(_) | Self::InvalidRefreshToken | Self::RefreshTokenExpired => StatusCode::UNAUTHORIZED,
+            Self::Unauthorized(_) | Self::InvalidRefreshToken | Self::RefreshTokenExpired => {
+                StatusCode::UNAUTHORIZED
+            }
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
             Self::NotFound(_) => StatusCode::NOT_FOUND,
             Self::Conflict(_) => StatusCode::CONFLICT,

@@ -4,20 +4,17 @@ use axum::{
     http::{header, HeaderMap, StatusCode},
     Extension, Json,
 };
-use std::sync::Arc;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 use crate::{
     domain::{
+        shared::usage_dto::{DailyUsage, UsageLimits, UsageResponse, UsageStats},
         tts::{TtsService, TtsServiceApi},
         user::{UserService, UserServiceApi},
-        shared::usage_dto::{DailyUsage, UsageLimits, UsageResponse, UsageStats},
     },
     error::{AppError, AppResult},
-    infrastructure::{
-        auth::AuthUser,
-        repositories::UsageRepository,
-    },
+    infrastructure::{auth::AuthUser, repositories::UsageRepository},
 };
 use chrono::{Duration, Utc};
 
@@ -67,7 +64,8 @@ impl TtsController {
         }
 
         // Synthesize speech using service
-        let result = controller.tts_service
+        let result = controller
+            .tts_service
             .synthesize(auth_user.user_id, request.text, request.link)
             .await
             .map_err(|e| AppError::from(e))?;
@@ -76,7 +74,9 @@ impl TtsController {
         let duration_seconds = (result.duration_minutes * 60.0) as u64;
 
         // Get remaining usage
-        let usage = controller.usage_repo.get_today_usage(auth_user.user_id)
+        let usage = controller
+            .usage_repo
+            .get_today_usage(auth_user.user_id)
             .await?;
         let characters_used = usage.map(|u| u.characters_used).unwrap_or(0);
         let character_limit = 20000; // This should come from user's tier, simplified for now
@@ -98,7 +98,10 @@ impl TtsController {
         );
         headers.insert(
             "X-Usage-Remaining",
-            (character_limit - characters_used).to_string().parse().unwrap(),
+            (character_limit - characters_used)
+                .to_string()
+                .parse()
+                .unwrap(),
         );
 
         Ok((StatusCode::OK, headers, Body::from(result.audio_data)))
@@ -110,10 +113,16 @@ impl TtsController {
         Extension(auth_user): Extension<AuthUser>,
     ) -> AppResult<Json<UsageResponse>> {
         // Get user profile to determine limits
-        let me_response = controller.user_service.get_user_profile(auth_user.user_id).await?;
+        let me_response = controller
+            .user_service
+            .get_user_profile(auth_user.user_id)
+            .await?;
 
         // Get today's usage
-        let today_usage = controller.usage_repo.get_today_usage(auth_user.user_id).await?;
+        let today_usage = controller
+            .usage_repo
+            .get_today_usage(auth_user.user_id)
+            .await?;
 
         let (characters_used, articles_count) = if let Some(usage) = &today_usage {
             (usage.characters_used, usage.articles_synthesized)
@@ -129,7 +138,10 @@ impl TtsController {
         let minute_limit = me_response.subscription.usage.minutes_limit;
 
         // Get usage history (last 30 days)
-        let history_records = controller.usage_repo.get_usage_history(auth_user.user_id, 30).await?;
+        let history_records = controller
+            .usage_repo
+            .get_usage_history(auth_user.user_id, 30)
+            .await?;
         let history: Vec<DailyUsage> = history_records
             .into_iter()
             .map(|r| DailyUsage {

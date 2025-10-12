@@ -6,12 +6,12 @@ use axum::{
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::domain::feed::{CreateFeedRequest, FeedResponse, UpdateFeedRequest};
 use crate::{
+    domain::feed::{FeedService, FeedServiceApi},
     error::AppResult,
     infrastructure::auth::AuthUser,
-    domain::feed::{FeedService, FeedServiceApi},
 };
-use crate::domain::feed::{CreateFeedRequest, FeedResponse, UpdateFeedRequest};
 
 pub struct FeedController {
     feed_service: Arc<FeedService>,
@@ -27,7 +27,10 @@ impl FeedController {
         State(controller): State<Arc<FeedController>>,
         Extension(auth_user): Extension<AuthUser>,
     ) -> AppResult<Json<Vec<FeedResponse>>> {
-        let feeds = controller.feed_service.get_user_feeds(auth_user.user_id).await?;
+        let feeds = controller
+            .feed_service
+            .get_user_feeds(auth_user.user_id)
+            .await?;
         Ok(Json(feeds))
     }
 
@@ -37,7 +40,10 @@ impl FeedController {
         Extension(auth_user): Extension<AuthUser>,
         Json(request): Json<CreateFeedRequest>,
     ) -> AppResult<StatusCode> {
-        controller.feed_service.create_feed(auth_user.user_id, request).await?;
+        controller
+            .feed_service
+            .create_feed(auth_user.user_id, request)
+            .await?;
         Ok(StatusCode::CREATED)
     }
 
@@ -48,7 +54,10 @@ impl FeedController {
         Path(feed_id): Path<Uuid>,
         Json(request): Json<UpdateFeedRequest>,
     ) -> AppResult<StatusCode> {
-        controller.feed_service.update_feed(auth_user.user_id, feed_id, request).await?;
+        controller
+            .feed_service
+            .update_feed(auth_user.user_id, feed_id, request)
+            .await?;
         Ok(StatusCode::NO_CONTENT)
     }
 
@@ -58,7 +67,10 @@ impl FeedController {
         Extension(auth_user): Extension<AuthUser>,
         Path(feed_id): Path<Uuid>,
     ) -> AppResult<StatusCode> {
-        controller.feed_service.delete_feed(auth_user.user_id, feed_id).await?;
+        controller
+            .feed_service
+            .delete_feed(auth_user.user_id, feed_id)
+            .await?;
         Ok(StatusCode::NO_CONTENT)
     }
 }

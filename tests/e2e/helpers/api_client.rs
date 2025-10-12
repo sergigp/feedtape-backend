@@ -125,19 +125,10 @@ impl ApiResponse {
         let headers = response
             .headers()
             .iter()
-            .filter_map(|(k, v)| {
-                v.to_str()
-                    .ok()
-                    .map(|v| (k.to_string(), v.to_string()))
-            })
+            .filter_map(|(k, v)| v.to_str().ok().map(|v| (k.to_string(), v.to_string())))
             .collect();
 
-        let body_bytes = response
-            .into_body()
-            .collect()
-            .await?
-            .to_bytes()
-            .to_vec();
+        let body_bytes = response.into_body().collect().await?.to_bytes().to_vec();
 
         let body = if !body_bytes.is_empty() {
             serde_json::from_slice(&body_bytes).ok()

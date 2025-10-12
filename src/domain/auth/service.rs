@@ -1,11 +1,11 @@
-use crate::infrastructure::repositories::{RefreshTokenRepository, UserRepository};
-use super::{generate_refresh_token, JwtManager, TokenResponse};
 use super::error::AuthServiceError;
+use super::{generate_refresh_token, JwtManager, TokenResponse};
 use crate::domain::user::User;
-use uuid::Uuid;
-use std::sync::Arc;
+use crate::infrastructure::repositories::{RefreshTokenRepository, UserRepository};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use std::sync::Arc;
+use uuid::Uuid;
 
 pub struct AuthService {
     user_repo: Arc<UserRepository>,
@@ -35,10 +35,7 @@ impl AuthService {
 
 #[async_trait]
 pub trait AuthServiceApi: Send + Sync {
-    async fn refresh_token(
-        &self,
-        refresh_token: &str,
-    ) -> Result<TokenResponse, AuthServiceError>;
+    async fn refresh_token(&self, refresh_token: &str) -> Result<TokenResponse, AuthServiceError>;
 
     async fn logout(&self, refresh_token: &str) -> Result<(), AuthServiceError>;
 
@@ -53,19 +50,19 @@ pub trait AuthServiceApi: Send + Sync {
 
 #[async_trait]
 impl AuthServiceApi for AuthService {
-    async fn refresh_token(
-        &self,
-        refresh_token: &str,
-    ) -> Result<TokenResponse, AuthServiceError> {
+    async fn refresh_token(&self, refresh_token: &str) -> Result<TokenResponse, AuthServiceError> {
         let (user_id, _expires_at) = self.find_valid_refresh_token(refresh_token).await?;
         let user = self.find_user(user_id).await?;
         let access_token = self.generate_access_token(user.id, &user.email)?;
         let new_refresh_token = generate_refresh_token();
 
-        self.refresh_token_repo.revoke(refresh_token).await
+        self.refresh_token_repo
+            .revoke(refresh_token)
+            .await
             .map_err(|e| AuthServiceError::Dependency(e.to_string()))?;
 
-        self.store_refresh_token(user.id, &new_refresh_token).await?;
+        self.store_refresh_token(user.id, &new_refresh_token)
+            .await?;
 
         Ok(TokenResponse {
             token: access_token,
@@ -75,12 +72,16 @@ impl AuthServiceApi for AuthService {
     }
 
     async fn logout(&self, refresh_token: &str) -> Result<(), AuthServiceError> {
-        self.refresh_token_repo.revoke(refresh_token).await
+        self.refresh_token_repo
+            .revoke(refresh_token)
+            .await
             .map_err(|e| AuthServiceError::Dependency(e.to_string()))
     }
 
     async fn logout_all(&self, user_id: Uuid) -> Result<(), AuthServiceError> {
-        self.refresh_token_repo.revoke_all_for_user(user_id).await
+        self.refresh_token_repo
+            .revoke_all_for_user(user_id)
+            .await
             .map_err(|e| AuthServiceError::Dependency(e.to_string()))
     }
 
@@ -107,7 +108,8 @@ impl AuthService {
         &self,
         refresh_token: &str,
     ) -> Result<(Uuid, DateTime<Utc>), AuthServiceError> {
-        if let Some((revoked, is_expired)) = self.refresh_token_repo
+        if let Some((revoked, is_expired)) = self
+            .refresh_token_repo
             .check_token_status(refresh_token)
             .await
             .map_err(|e| AuthServiceError::Dependency(e.to_string()))?
@@ -134,11 +136,12 @@ impl AuthService {
             .ok_or_else(|| AuthServiceError::Unauthorized("User not found".to_string()))
     }
 
-    fn generate_access_token(&self, user_id: Uuid, email: &str) -> Result<String, AuthServiceError> {
-        let jwt_manager = JwtManager::new(
-            self.jwt_secret.clone(),
-            self.jwt_expiration_hours,
-        );
+    fn generate_access_token(
+        &self,
+        user_id: Uuid,
+        email: &str,
+    ) -> Result<String, AuthServiceError> {
+        let jwt_manager = JwtManager::new(self.jwt_secret.clone(), self.jwt_expiration_hours);
         jwt_manager
             .generate_token(user_id, email)
             .map_err(|e| AuthServiceError::from(e))

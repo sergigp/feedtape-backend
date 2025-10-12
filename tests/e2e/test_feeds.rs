@@ -46,7 +46,10 @@ async fn it_should_list_user_feeds() {
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
     // Create multiple feeds
-    ctx.fixtures.create_multiple_feeds(user.id, 3).await.unwrap();
+    ctx.fixtures
+        .create_multiple_feeds(user.id, 3)
+        .await
+        .unwrap();
 
     let response = ctx
         .client
@@ -61,19 +64,34 @@ async fn it_should_list_user_feeds() {
 
     // Verify each feed has complete structure
     for (idx, feed) in feeds.iter().enumerate() {
-        let feed_id = feed["id"].as_str().expect(&format!("Feed {} missing id", idx));
-        let url = feed["url"].as_str().expect(&format!("Feed {} missing url", idx));
+        let feed_id = feed["id"]
+            .as_str()
+            .expect(&format!("Feed {} missing id", idx));
+        let url = feed["url"]
+            .as_str()
+            .expect(&format!("Feed {} missing url", idx));
         let created_at = &feed["created_at"];
 
         assert!(!feed_id.is_empty(), "Feed ID should not be empty");
         assert!(!url.is_empty(), "Feed URL should not be empty");
-        assert!(created_at.is_string(), "created_at should be a timestamp string");
+        assert!(
+            created_at.is_string(),
+            "created_at should be a timestamp string"
+        );
 
         // Verify feed matches expected structure (title is optional)
-        let expected_keys: Vec<&str> = feed.as_object().unwrap().keys().map(|s| s.as_str()).collect();
+        let expected_keys: Vec<&str> = feed
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(|s| s.as_str())
+            .collect();
         assert!(expected_keys.contains(&"id"), "Missing id field");
         assert!(expected_keys.contains(&"url"), "Missing url field");
-        assert!(expected_keys.contains(&"created_at"), "Missing created_at field");
+        assert!(
+            expected_keys.contains(&"created_at"),
+            "Missing created_at field"
+        );
     }
 }
 
@@ -105,7 +123,11 @@ async fn it_should_update_feed_title() {
     response.assert_status(StatusCode::NO_CONTENT);
 
     // Verify update persisted by listing feeds
-    let list_response = ctx.client.get_with_auth("/api/feeds", &token).await.unwrap();
+    let list_response = ctx
+        .client
+        .get_with_auth("/api/feeds", &token)
+        .await
+        .unwrap();
     let feeds = list_response.body.as_ref().unwrap().as_array().unwrap();
     assert_eq!(feeds[0]["title"], "New Title");
 }
@@ -146,7 +168,10 @@ async fn it_should_prevent_duplicate_feed_urls() {
     let feed_url = "https://blog.example.com/rss";
 
     // Create first feed
-    ctx.fixtures.create_feed(user.id, feed_url, Some("Blog")).await.unwrap();
+    ctx.fixtures
+        .create_feed(user.id, feed_url, Some("Blog"))
+        .await
+        .unwrap();
 
     // Try to create duplicate
     let response = ctx
@@ -178,7 +203,11 @@ async fn it_should_enforce_free_tier_feed_limit() {
     // Create 3 feeds (free tier limit)
     for i in 0..3 {
         ctx.fixtures
-            .create_feed(user.id, &format!("https://blog{}.example.com/rss", i), Some(&format!("Blog {}", i)))
+            .create_feed(
+                user.id,
+                &format!("https://blog{}.example.com/rss", i),
+                Some(&format!("Blog {}", i)),
+            )
             .await
             .unwrap();
     }
@@ -207,7 +236,11 @@ async fn it_should_enforce_free_tier_feed_limit() {
 #[serial]
 async fn it_should_allow_pro_users_more_feeds() {
     let ctx = TestContext::new().await.unwrap();
-    let user = ctx.fixtures.create_pro_user("pro@example.com").await.unwrap();
+    let user = ctx
+        .fixtures
+        .create_pro_user("pro@example.com")
+        .await
+        .unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
     // Create more than 3 feeds (pro tier allows more)
@@ -307,11 +340,7 @@ async fn it_should_validate_feed_url_format() {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
-    let invalid_urls = vec![
-        "not-a-url",
-        "ftp://example.com/feed",
-        "",
-    ];
+    let invalid_urls = vec!["not-a-url", "ftp://example.com/feed", ""];
 
     for invalid_url in invalid_urls {
         let response = ctx
