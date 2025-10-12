@@ -1,0 +1,245 @@
+openapi: 3.0.3
+info:
+  title: FeedTape Feed Suggestions API
+  description: |
+    API endpoints for discovering curated RSS feed recommendations organized by category.
+    Helps new users populate their feed list during onboarding.
+  version: 1.0.0
+  contact:
+    email: support@feedtape.app
+
+servers:
+  - url: https://api.feedtape.app
+    description: Production server
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: feed-suggestions
+    description: Feed discovery and suggestions
+
+security:
+  - BearerAuth: []
+
+paths:
+  /api/feed-suggestions:
+    get:
+      tags:
+        - feed-suggestions
+      summary: Get categories with their feed suggestions
+      description: |
+        Returns categories with nested feed suggestions for each category.
+
+        If category_ids parameter is provided, returns only the requested categories with their suggestions.
+        If no category_ids parameter is provided, returns all 20 categories with their suggestions.
+
+        Invalid category IDs are silently filtered out (not an error).
+      operationId: getFeedSuggestions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: category_ids
+          in: query
+          description: |
+            Optional comma-separated list of category IDs to filter by.
+            If omitted, returns all categories.
+            Example: ?category_ids=technology-programming,science-research
+          required: false
+          schema:
+            type: string
+            example: "technology-programming,science-research"
+        - name: categories
+          in: query
+          description: |
+            Alternative parameter name (alias for category_ids).
+            Use either category_ids or categories, not both.
+          required: false
+          schema:
+            type: string
+            example: "news-current-affairs"
+      responses:
+        '200':
+          description: Successful response with categories and their suggestions
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - categories
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CategoryWithSuggestions'
+                    description: Array of categories, each containing their feed suggestions
+              examples:
+                all_categories:
+                  summary: All categories (no filter)
+                  value:
+                    categories:
+                      - id: "news-current-affairs"
+                        name: "📰 News & Current Affairs"
+                        description: "Stay informed with breaking news and in-depth analysis"
+                        suggestions:
+                          - id: "bbc-news"
+                            title: "BBC News"
+                            description: "Breaking news, analysis and features from the BBC"
+                            url: "https://feeds.bbci.co.uk/news/rss.xml"
+                          - id: "the-guardian"
+                            title: "The Guardian"
+                            description: "Latest news, sport and opinion from the Guardian"
+                            url: "https://www.theguardian.com/world/rss"
+                      - id: "technology-programming"
+                        name: "💻 Technology & Programming"
+                        description: "Latest in tech, programming languages, frameworks, and software development"
+                        suggestions:
+                          - id: "techcrunch"
+                            title: "TechCrunch"
+                            description: "Breaking technology news, analysis, and opinions from Silicon Valley and beyond"
+                            url: "https://techcrunch.com/feed/"
+                          - id: "the-verge"
+                            title: "The Verge"
+                            description: "Technology news, reviews, and analysis with a focus on consumer tech"
+                            url: "https://www.theverge.com/rss/index.xml"
+                filtered_categories:
+                  summary: Filtered categories
+                  value:
+                    categories:
+                      - id: "technology-programming"
+                        name: "💻 Technology & Programming"
+                        description: "Latest in tech, programming languages, frameworks, and software development"
+                        suggestions:
+                          - id: "techcrunch"
+                            title: "TechCrunch"
+                            description: "Breaking technology news, analysis, and opinions from Silicon Valley and beyond"
+                            url: "https://techcrunch.com/feed/"
+                          - id: "the-verge"
+                            title: "The Verge"
+                            description: "Technology news, reviews, and analysis with a focus on consumer tech"
+                            url: "https://www.theverge.com/rss/index.xml"
+                invalid_categories:
+                  summary: Invalid category IDs
+                  value:
+                    categories: []
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT access token obtained from /auth/login or /auth/refresh endpoints.
+        Include in Authorization header: `Authorization: Bearer <token>`
+
+  schemas:
+    CategoryWithSuggestions:
+      type: object
+      description: A category with its nested feed suggestions
+      required:
+        - id
+        - name
+        - description
+        - suggestions
+      properties:
+        id:
+          type: string
+          description: Unique slug identifier for the category
+          pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+          example: "technology-programming"
+        name:
+          type: string
+          description: Display name with optional emoji
+          minLength: 1
+          maxLength: 100
+          example: "💻 Technology & Programming"
+        description:
+          type: string
+          description: Brief description of category content
+          minLength: 50
+          maxLength: 300
+          example: "Latest in tech, programming languages, frameworks, and software development"
+        suggestions:
+          type: array
+          description: Array of feed suggestions for this category
+          items:
+            $ref: '#/components/schemas/FeedSuggestion'
+
+    FeedSuggestion:
+      type: object
+      description: A curated RSS feed recommendation
+      required:
+        - id
+        - title
+        - description
+        - url
+      properties:
+        id:
+          type: string
+          description: Unique slug identifier for the feed
+          pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+          example: "techcrunch"
+        title:
+          type: string
+          description: Display title for the feed
+          minLength: 1
+          maxLength: 200
+          example: "TechCrunch"
+        description:
+          type: string
+          description: Brief description of feed content
+          minLength: 50
+          maxLength: 500
+          example: "Breaking technology news, analysis, and opinions from Silicon Valley and beyond"
+        url:
+          type: string
+          format: uri
+          description: RSS feed URL (validated and working)
+          example: "https://techcrunch.com/feed/"
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code or type
+          example: "unauthorized"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Authentication required. Please provide a valid access token."
+        request_id:
+          type: string
+          format: uuid
+          description: Unique request ID for troubleshooting
+          example: "550e8400-e29b-41d4-a716-446655440000"
+
+  responses:
+    UnauthorizedError:
+      description: Authentication failed or token missing
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "unauthorized"
+            message: "Authentication required. Please provide a valid access token."
+            request_id: "550e8400-e29b-41d4-a716-446655440000"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "internal_server_error"
+            message: "An unexpected error occurred. Please try again later."
+            request_id: "550e8400-e29b-41d4-a716-446655440000"

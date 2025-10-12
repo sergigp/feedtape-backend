@@ -17,7 +17,9 @@ pub enum AuthServiceError {
 impl From<AppError> for AuthServiceError {
     fn from(err: AppError) -> Self {
         match err {
-            AppError::InvalidRefreshToken => AuthServiceError::Invalid("Invalid refresh token".to_string()),
+            AppError::InvalidRefreshToken => {
+                AuthServiceError::Invalid("Invalid refresh token".to_string())
+            }
             AppError::RefreshTokenExpired => AuthServiceError::Expired,
             AppError::Unauthorized(msg) => AuthServiceError::Unauthorized(msg),
             _ => AuthServiceError::Dependency(err.to_string()),

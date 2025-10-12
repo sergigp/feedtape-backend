@@ -78,17 +78,13 @@ impl Default for UserSettings {
 impl User {
     /// Check if user is on free trial (trial = first 7 days from account creation)
     pub fn is_trial(&self) -> bool {
-        let days_since_signup = Utc::now()
-            .signed_duration_since(self.created_at)
-            .num_days();
+        let days_since_signup = Utc::now().signed_duration_since(self.created_at).num_days();
         self.subscription_tier == SubscriptionTier::Free && days_since_signup < 7
     }
 
     /// Check if trial has expired
     pub fn is_trial_expired(&self) -> bool {
-        let days_since_signup = Utc::now()
-            .signed_duration_since(self.created_at)
-            .num_days();
+        let days_since_signup = Utc::now().signed_duration_since(self.created_at).num_days();
         self.subscription_tier == SubscriptionTier::Free && days_since_signup >= 7
     }
 }

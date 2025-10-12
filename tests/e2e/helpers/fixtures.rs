@@ -2,7 +2,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use feedtape_backend::domain::{
     feed::model::Feed,
-    user::model::{User, UserSettings, SubscriptionTier, SubscriptionStatus},
+    user::model::{SubscriptionStatus, SubscriptionTier, User, UserSettings},
 };
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -197,18 +197,21 @@ impl TestFixtures {
 
     #[allow(dead_code)]
     pub async fn get_user_by_id(&self, user_id: Uuid) -> Result<Option<User>> {
-        let user = sqlx::query_as::<_, (
-            Uuid,
-            String,
-            String,
-            String,
-            serde_json::Value,
-            String,
-            String,
-            Option<DateTime<Utc>>,
-            DateTime<Utc>,
-            DateTime<Utc>,
-        )>(
+        let user = sqlx::query_as::<
+            _,
+            (
+                Uuid,
+                String,
+                String,
+                String,
+                serde_json::Value,
+                String,
+                String,
+                Option<DateTime<Utc>>,
+                DateTime<Utc>,
+                DateTime<Utc>,
+            ),
+        >(
             r#"
             SELECT id, email, oauth_provider, oauth_provider_id, settings,
                    subscription_tier, subscription_status, subscription_expires_at,
@@ -231,8 +234,9 @@ impl TestFixtures {
             subscription_status,
             subscription_expires_at,
             created_at,
-            updated_at
-        )) = user {
+            updated_at,
+        )) = user
+        {
             let tier = match subscription_tier.as_str() {
                 "pro" => SubscriptionTier::Pro,
                 _ => SubscriptionTier::Free,

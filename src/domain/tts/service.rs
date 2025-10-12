@@ -1,18 +1,16 @@
-use crate::infrastructure::repositories::{UsageRepository, UserRepository};
 use super::error::TtsServiceError;
 use super::language::LanguageCode;
 use crate::domain::user::{SubscriptionTier, User};
+use crate::infrastructure::repositories::{UsageRepository, UserRepository};
+use async_trait::async_trait;
 use aws_sdk_polly::{
     types::{Engine, OutputFormat, VoiceId},
     Client as PollyClient,
 };
-use uuid::Uuid;
-use std::sync::Arc;
-use async_trait::async_trait;
 use html2text::from_read;
 use lingua::{LanguageDetector, LanguageDetectorBuilder};
-use moka::future::Cache;
-use std::time::Duration;
+use std::sync::Arc;
+use uuid::Uuid;
 
 const CHARACTERS_PER_MINUTE: f32 = 1000.0;
 const MAX_BATCH_SIZE: usize = 3000;
@@ -140,10 +138,7 @@ impl TtsServiceApi for TtsService {
 
         // 5. Split text into batches
         let batches = self.split_into_batches(&cleaned_text);
-        tracing::info!(
-            batch_count = batches.len(),
-            "Text split into batches"
-        );
+        tracing::info!(batch_count = batches.len(), "Text split into batches");
 
         // 6. Call Polly for each batch and merge results using the detected language
         let audio_data = self.synthesize_batches(&batches, detected_language).await?;
@@ -185,7 +180,10 @@ impl TtsService {
     }
 
     async fn guard_usage(&self, user: &User, char_count: i32) -> Result<(), TtsServiceError> {
-        let usage = self.usage_repo.get_today_usage(user.id).await
+        let usage = self
+            .usage_repo
+            .get_today_usage(user.id)
+            .await
             .map_err(|e| TtsServiceError::Dependency(e.to_string()))?;
         let characters_used_today = usage.map(|u| u.characters_used).unwrap_or(0);
 
@@ -214,7 +212,11 @@ impl TtsService {
         Ok(())
     }
 
-    async fn call_polly(&self, text: &str, language_code: LanguageCode) -> Result<Vec<u8>, TtsServiceError> {
+    async fn call_polly(
+        &self,
+        text: &str,
+        language_code: LanguageCode,
+    ) -> Result<Vec<u8>, TtsServiceError> {
         // Select voice based on detected language (always use neural)
         let voice_name = super::language::get_voice_for_language(language_code);
         let voice_id = VoiceId::from(voice_name);
@@ -236,7 +238,8 @@ impl TtsService {
         let voice_id_for_error = voice_id.clone();
 
         // Call Polly
-        let result = self.polly_client
+        let result = self
+            .polly_client
             .synthesize_speech()
             .text(text)
             .voice_id(voice_id)
@@ -260,23 +263,26 @@ impl TtsService {
         tracing::debug!("AWS Polly synthesize_speech successful, reading audio stream");
 
         // Get audio stream
-        let audio_stream = result
-            .audio_stream
-            .collect()
-            .await
-            .map_err(|e| {
-                tracing::error!(error = %e, "Failed to collect audio stream from Polly response");
-                TtsServiceError::Dependency(format!("Failed to read audio stream: {}", e))
-            })?;
+        let audio_stream = result.audio_stream.collect().await.map_err(|e| {
+            tracing::error!(error = %e, "Failed to collect audio stream from Polly response");
+            TtsServiceError::Dependency(format!("Failed to read audio stream: {}", e))
+        })?;
 
         let audio_bytes = audio_stream.into_bytes().to_vec();
-        tracing::debug!(audio_size = audio_bytes.len(), "Audio stream collected successfully");
+        tracing::debug!(
+            audio_size = audio_bytes.len(),
+            "Audio stream collected successfully"
+        );
 
         Ok(audio_bytes)
     }
 
     /// Synthesize multiple text batches and merge the audio results in order
-    async fn synthesize_batches(&self, batches: &[String], language_code: LanguageCode) -> Result<Vec<u8>, TtsServiceError> {
+    async fn synthesize_batches(
+        &self,
+        batches: &[String],
+        language_code: LanguageCode,
+    ) -> Result<Vec<u8>, TtsServiceError> {
         let mut merged_audio = Vec::new();
 
         for (index, batch) in batches.iter().enumerate() {
@@ -395,8 +401,8 @@ impl TtsService {
 
 #[cfg(test)]
 mod tests {
-    use lingua::Language;
     use super::*;
+    use lingua::Language;
 
     // Test helper functions that mirror the service methods
     fn clean_text_test(text: &str) -> String {
@@ -520,7 +526,10 @@ mod tests {
         let text = sentence.repeat(200); // Will be > 3000 chars
         let batches = split_into_batches_test(&text);
 
-        assert!(batches.len() > 1, "Text should be split into multiple batches");
+        assert!(
+            batches.len() > 1,
+            "Text should be split into multiple batches"
+        );
 
         // All batches should be <= MAX_BATCH_SIZE
         for batch in &batches {
@@ -556,9 +565,18 @@ mod tests {
         let text = "a".repeat(MAX_BATCH_SIZE + 500);
         let batches = split_into_batches_test(&text);
 
-        assert!(batches.len() >= 2, "Should split text without punctuation, got {} batches", batches.len());
+        assert!(
+            batches.len() >= 2,
+            "Should split text without punctuation, got {} batches",
+            batches.len()
+        );
         for (i, batch) in batches.iter().enumerate() {
-            assert!(batch.len() <= MAX_BATCH_SIZE, "Batch {} has length {}", i, batch.len());
+            assert!(
+                batch.len() <= MAX_BATCH_SIZE,
+                "Batch {} has length {}",
+                i,
+                batch.len()
+            );
         }
     }
 
@@ -595,7 +613,11 @@ mod tests {
     fn test_split_into_batches_edge_case_one_over_max_size() {
         let text = "a".repeat(MAX_BATCH_SIZE + 1);
         let batches = split_into_batches_test(&text);
-        assert!(batches.len() >= 2, "Expected at least 2 batches, got {}", batches.len());
+        assert!(
+            batches.len() >= 2,
+            "Expected at least 2 batches, got {}",
+            batches.len()
+        );
     }
 
     #[test]
@@ -609,7 +631,8 @@ mod tests {
     #[test]
     fn test_detect_language_spanish() {
         let detector = LanguageDetectorBuilder::from_all_languages().build();
-        let text = "Esto es una prueba en español. El rápido zorro marrón salta sobre el perro perezoso.";
+        let text =
+            "Esto es una prueba en español. El rápido zorro marrón salta sobre el perro perezoso.";
         let language = detector.detect_language_of(text);
         assert_eq!(language, Some(Language::Spanish));
     }
@@ -633,7 +656,8 @@ mod tests {
     #[test]
     fn test_detect_language_italian() {
         let detector = LanguageDetectorBuilder::from_all_languages().build();
-        let text = "Questo è un test in italiano. La volpe marrone veloce salta sopra il cane pigro.";
+        let text =
+            "Questo è un test in italiano. La volpe marrone veloce salta sopra il cane pigro.";
         let language = detector.detect_language_of(text);
         assert_eq!(language, Some(Language::Italian));
     }
@@ -641,7 +665,8 @@ mod tests {
     #[test]
     fn test_detect_language_portuguese() {
         let detector = LanguageDetectorBuilder::from_all_languages().build();
-        let text = "Este é um teste em português. A rápida raposa marrom salta sobre o cão preguiçoso.";
+        let text =
+            "Este é um teste em português. A rápida raposa marrom salta sobre o cão preguiçoso.";
         let language = detector.detect_language_of(text);
         assert_eq!(language, Some(Language::Portuguese));
     }

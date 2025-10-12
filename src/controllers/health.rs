@@ -1,7 +1,7 @@
+use crate::infrastructure::db::{check_connection, DbPool};
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde_json::json;
 use std::sync::Arc;
-use crate::infrastructure::db::{check_connection, DbPool};
 
 pub async fn health() -> impl IntoResponse {
     (StatusCode::OK, "OK")

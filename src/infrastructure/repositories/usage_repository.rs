@@ -1,9 +1,9 @@
-use crate::{error::AppResult};
+use crate::error::AppResult;
+use crate::infrastructure::db::DbPool;
 use chrono::{NaiveDate, Utc};
 use sqlx::FromRow;
-use uuid::Uuid;
-use crate::infrastructure::db::DbPool;
 use std::sync::Arc;
+use uuid::Uuid;
 
 #[derive(Debug, FromRow)]
 pub struct UsageRecord {
@@ -43,11 +43,7 @@ impl UsageRepository {
     }
 
     /// Increment usage for today
-    pub async fn increment_usage(
-        &self,
-        user_id: Uuid,
-        characters: i32,
-    ) -> AppResult<()> {
+    pub async fn increment_usage(&self, user_id: Uuid, characters: i32) -> AppResult<()> {
         let pool = self.pool.as_ref();
         let now = Utc::now();
         let today = now.date_naive();

@@ -12,11 +12,7 @@ async fn it_should_get_current_user_info() {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
-    let response = ctx
-        .client
-        .get_with_auth("/api/me", &token)
-        .await
-        .unwrap();
+    let response = ctx.client.get_with_auth("/api/me", &token).await.unwrap();
 
     response.assert_status(StatusCode::OK);
 
@@ -68,17 +64,16 @@ async fn it_should_update_user_settings() {
     response.assert_status(StatusCode::NO_CONTENT);
 
     // Verify settings persist by fetching user profile
-    let response = ctx
-        .client
-        .get_with_auth("/api/me", &token)
-        .await
-        .unwrap();
+    let response = ctx.client.get_with_auth("/api/me", &token).await.unwrap();
 
     let body = response.body.as_ref().unwrap();
 
     // Verify persisted settings - voice should be stored as name and returned as ID
     assert_eq!(body["settings"]["language"], "es");
-    assert_eq!(body["settings"]["voice"].as_str().unwrap(), "voice_sergio_es");
+    assert_eq!(
+        body["settings"]["voice"].as_str().unwrap(),
+        "voice_sergio_es"
+    );
 }
 
 #[tokio::test]
@@ -109,22 +104,25 @@ async fn it_should_update_partial_settings() {
     let response = ctx.client.get_with_auth("/api/me", &token).await.unwrap();
     let body = response.body.as_ref().unwrap();
 
-    assert_eq!(body["settings"]["voice"].as_str().unwrap(), "voice_conchita_es");
-    assert_eq!(body["settings"]["language"], "en");  // Language remains at default
+    assert_eq!(
+        body["settings"]["voice"].as_str().unwrap(),
+        "voice_conchita_es"
+    );
+    assert_eq!(body["settings"]["language"], "en"); // Language remains at default
 }
 
 #[tokio::test]
 #[serial]
 async fn it_should_show_pro_user_subscription() {
     let ctx = TestContext::new().await.unwrap();
-    let user = ctx.fixtures.create_pro_user("pro@example.com").await.unwrap();
-    let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
-
-    let response = ctx
-        .client
-        .get_with_auth("/api/me", &token)
+    let user = ctx
+        .fixtures
+        .create_pro_user("pro@example.com")
         .await
         .unwrap();
+    let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
+
+    let response = ctx.client.get_with_auth("/api/me", &token).await.unwrap();
 
     response.assert_status(StatusCode::OK);
 
@@ -151,11 +149,7 @@ async fn it_should_show_usage_statistics() {
     // Add some usage
     ctx.fixtures.add_tts_usage(user.id, 5000, 2).await.unwrap();
 
-    let response = ctx
-        .client
-        .get_with_auth("/api/me", &token)
-        .await
-        .unwrap();
+    let response = ctx.client.get_with_auth("/api/me", &token).await.unwrap();
 
     response.assert_status(StatusCode::OK);
 

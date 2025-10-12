@@ -29,9 +29,9 @@ async fn it_should_synthesize_text_to_speech() {
     // In a real scenario, we'd mock the Polly response properly
     println!("TTS synthesize response status: {:?}", response.status);
     assert!(
-        response.status == StatusCode::OK ||
-        response.status == StatusCode::SERVICE_UNAVAILABLE ||
-        response.status == StatusCode::INTERNAL_SERVER_ERROR // AWS mock connection fails
+        response.status == StatusCode::OK
+            || response.status == StatusCode::SERVICE_UNAVAILABLE
+            || response.status == StatusCode::INTERNAL_SERVER_ERROR // AWS mock connection fails
     );
 
     if response.status == StatusCode::OK {
@@ -66,9 +66,9 @@ async fn it_should_use_custom_voice_settings() {
     // Test that endpoint accepts language parameter
     // With mocked AWS, synthesis fails with 500, but we can still test validation
     assert!(
-        response.status == StatusCode::OK ||
-        response.status == StatusCode::SERVICE_UNAVAILABLE ||
-        response.status == StatusCode::INTERNAL_SERVER_ERROR // AWS mock fails
+        response.status == StatusCode::OK
+            || response.status == StatusCode::SERVICE_UNAVAILABLE
+            || response.status == StatusCode::INTERNAL_SERVER_ERROR // AWS mock fails
     );
 }
 
@@ -104,9 +104,9 @@ async fn it_should_auto_detect_language() {
 
         // With mocked AWS, synthesis fails with 500
         assert!(
-            response.status == StatusCode::OK ||
-            response.status == StatusCode::SERVICE_UNAVAILABLE ||
-            response.status == StatusCode::INTERNAL_SERVER_ERROR // AWS mock fails
+            response.status == StatusCode::OK
+                || response.status == StatusCode::SERVICE_UNAVAILABLE
+                || response.status == StatusCode::INTERNAL_SERVER_ERROR // AWS mock fails
         );
 
         if response.status == StatusCode::OK {
@@ -167,7 +167,10 @@ async fn it_should_enforce_daily_usage_limits() {
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
     // Add usage near the limit for free tier (30000 characters)
-    ctx.fixtures.add_tts_usage(user.id, 29900, 20).await.unwrap();
+    ctx.fixtures
+        .add_tts_usage(user.id, 29900, 20)
+        .await
+        .unwrap();
 
     // Small request should succeed (or hit usage limit)
     let response = ctx
@@ -210,8 +213,9 @@ async fn it_should_enforce_daily_usage_limits() {
 
     // With mocked AWS, we might get 500 instead of proper limit error
     // When limits are exceeded, the system returns PAYMENT_REQUIRED to upgrade
-    if response.status != StatusCode::SERVICE_UNAVAILABLE &&
-       response.status != StatusCode::INTERNAL_SERVER_ERROR {
+    if response.status != StatusCode::SERVICE_UNAVAILABLE
+        && response.status != StatusCode::INTERNAL_SERVER_ERROR
+    {
         response
             .assert_status(StatusCode::PAYMENT_REQUIRED)
             .assert_error_message("limit exceeded");
@@ -222,11 +226,18 @@ async fn it_should_enforce_daily_usage_limits() {
 #[serial]
 async fn it_should_allow_higher_limits_for_pro_users() {
     let ctx = TestContext::new().await.unwrap();
-    let user = ctx.fixtures.create_pro_user("pro@example.com").await.unwrap();
+    let user = ctx
+        .fixtures
+        .create_pro_user("pro@example.com")
+        .await
+        .unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
     // Add usage that would exceed free tier limit
-    ctx.fixtures.add_tts_usage(user.id, 35000, 25).await.unwrap();
+    ctx.fixtures
+        .add_tts_usage(user.id, 35000, 25)
+        .await
+        .unwrap();
 
     // Pro user should still be able to synthesize
     let response = ctx
@@ -244,9 +255,9 @@ async fn it_should_allow_higher_limits_for_pro_users() {
 
     // With mocked AWS, synthesis fails with 500
     assert!(
-        response.status == StatusCode::OK ||
-        response.status == StatusCode::SERVICE_UNAVAILABLE ||
-        response.status == StatusCode::INTERNAL_SERVER_ERROR // AWS mock fails
+        response.status == StatusCode::OK
+            || response.status == StatusCode::SERVICE_UNAVAILABLE
+            || response.status == StatusCode::INTERNAL_SERVER_ERROR // AWS mock fails
     );
 }
 
@@ -255,7 +266,11 @@ async fn it_should_allow_higher_limits_for_pro_users() {
 async fn it_should_require_pro_for_neural_voices() {
     let ctx = TestContext::new().await.unwrap();
     let free_user = ctx.fixtures.create_user("free@example.com").await.unwrap();
-    let pro_user = ctx.fixtures.create_pro_user("pro@example.com").await.unwrap();
+    let pro_user = ctx
+        .fixtures
+        .create_pro_user("pro@example.com")
+        .await
+        .unwrap();
 
     let free_token = generate_test_jwt(&free_user.id, &ctx.config.jwt_secret);
     let pro_token = generate_test_jwt(&pro_user.id, &ctx.config.jwt_secret);
@@ -276,9 +291,9 @@ async fn it_should_require_pro_for_neural_voices() {
 
     // With mocked AWS, synthesis fails with 500
     assert!(
-        response.status == StatusCode::OK ||
-        response.status == StatusCode::SERVICE_UNAVAILABLE ||
-        response.status == StatusCode::INTERNAL_SERVER_ERROR // AWS mock fails
+        response.status == StatusCode::OK
+            || response.status == StatusCode::SERVICE_UNAVAILABLE
+            || response.status == StatusCode::INTERNAL_SERVER_ERROR // AWS mock fails
     );
 
     // Pro user gets neural voice automatically (backend handles this)
@@ -297,9 +312,9 @@ async fn it_should_require_pro_for_neural_voices() {
 
     // With mocked AWS, synthesis fails with 500
     assert!(
-        response.status == StatusCode::OK ||
-        response.status == StatusCode::SERVICE_UNAVAILABLE ||
-        response.status == StatusCode::INTERNAL_SERVER_ERROR // AWS mock fails
+        response.status == StatusCode::OK
+            || response.status == StatusCode::SERVICE_UNAVAILABLE
+            || response.status == StatusCode::INTERNAL_SERVER_ERROR // AWS mock fails
     );
 }
 
@@ -311,7 +326,10 @@ async fn it_should_get_tts_usage_statistics() {
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
     // Add some usage
-    ctx.fixtures.add_tts_usage(user.id, 15000, 10).await.unwrap();
+    ctx.fixtures
+        .add_tts_usage(user.id, 15000, 10)
+        .await
+        .unwrap();
 
     let response = ctx
         .client
@@ -403,9 +421,9 @@ async fn it_should_accept_valid_requests() {
 
     // With mocked AWS, synthesis fails with 500
     assert!(
-        response.status == StatusCode::OK ||
-        response.status == StatusCode::SERVICE_UNAVAILABLE ||
-        response.status == StatusCode::INTERNAL_SERVER_ERROR // AWS mock fails
+        response.status == StatusCode::OK
+            || response.status == StatusCode::SERVICE_UNAVAILABLE
+            || response.status == StatusCode::INTERNAL_SERVER_ERROR // AWS mock fails
     );
 }
 

@@ -30,7 +30,10 @@ async fn it_should_initiate_github_oauth() {
         location
     );
     assert!(location.contains("client_id="), "Should include client_id");
-    assert!(location.contains("state="), "Should include state parameter");
+    assert!(
+        location.contains("state="),
+        "Should include state parameter"
+    );
 
     // State should be prefixed with "web:" (either raw or URL-encoded)
     assert!(
@@ -45,7 +48,11 @@ async fn it_should_initiate_github_oauth() {
 async fn it_should_initiate_github_oauth_with_mobile_param() {
     let ctx = TestContext::new().await.unwrap();
 
-    let response = ctx.client.get("/auth/oauth/github?mobile=true").await.unwrap();
+    let response = ctx
+        .client
+        .get("/auth/oauth/github?mobile=true")
+        .await
+        .unwrap();
 
     // Should redirect to GitHub
     assert!(
@@ -98,7 +105,11 @@ async fn it_should_reject_callback_without_state() {
     let ctx = TestContext::new().await.unwrap();
 
     // Try to access callback with code but without state parameter
-    let response = ctx.client.get("/auth/callback/github?code=test123").await.unwrap();
+    let response = ctx
+        .client
+        .get("/auth/callback/github?code=test123")
+        .await
+        .unwrap();
 
     // Should return an error (400 or 422 for missing required query param)
     assert!(

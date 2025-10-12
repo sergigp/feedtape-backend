@@ -89,7 +89,11 @@ async fn it_should_be_fast_health_check() {
     response.assert_status(StatusCode::OK);
 
     // Health check should be very fast (under 100ms)
-    assert!(duration.as_millis() < 100, "Health check took too long: {:?}", duration);
+    assert!(
+        duration.as_millis() < 100,
+        "Health check took too long: {:?}",
+        duration
+    );
 }
 
 #[tokio::test]
@@ -134,11 +138,7 @@ async fn it_should_return_service_details_in_ready() {
         );
 
         let status = body.get(service).and_then(|v| v.as_str());
-        assert!(
-            status.is_some(),
-            "Service '{}' has no status",
-            service
-        );
+        assert!(status.is_some(), "Service '{}' has no status", service);
     }
 }
 

@@ -9,6 +9,7 @@
 
 mod helpers;
 mod test_auth;
+mod test_feed_suggestions;
 mod test_feeds;
 mod test_health;
 mod test_oauth;

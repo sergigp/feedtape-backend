@@ -5,7 +5,22 @@
       "Bash(cargo test:*)",
       "Bash(./run_tests.sh:*)",
       "Bash(docker:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(.specify/scripts/bash/create-new-feature.sh:*)",
+      "Bash(mkdir:*)",
+      "Bash(.specify/scripts/bash/setup-plan.sh:*)",
+      "Bash(.specify/scripts/bash/update-agent-context.sh:*)",
+      "Bash(.specify/scripts/bash/check-prerequisites.sh:*)",
+      "Bash(if [ -d \"/Users/sergigonzalez/dev/personal/feedtape-backend/specs/001-i-want-to/checklists\" ])",
+      "Bash(then echo \"EXISTS\")",
+      "Bash(else echo \"NOT_EXISTS\")",
+      "Bash(fi)",
+      "Bash(git rev-parse:*)",
+      "Bash(test:*)",
+      "Bash(gh pr view:*)",
+      "Read(//private/tmp/**)",
+      "Bash(gh pr diff:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

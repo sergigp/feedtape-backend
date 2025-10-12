@@ -1,8 +1,8 @@
-use std::sync::Arc;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use feedtape_backend::infrastructure::config::{Config, LogFormat};
 use feedtape_backend::infrastructure::db::{check_connection, create_pool};
 use feedtape_backend::infrastructure::http::start_http_server;
+use std::sync::Arc;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -27,7 +27,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Database connection verified");
 
     // Create AWS Polly client
-    tracing::info!("Initializing AWS Polly client with region: {}", config.aws_region);
+    tracing::info!(
+        "Initializing AWS Polly client with region: {}",
+        config.aws_region
+    );
 
     // Check for AWS credentials in environment (for debugging)
     let has_access_key = std::env::var("AWS_ACCESS_KEY_ID").is_ok();
@@ -63,18 +66,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // === DEPENDENCY INJECTION SETUP ===
     // 1. Instantiate repositories (inject db pool)
     tracing::info!("Instantiating repositories...");
-    let user_repo = Arc::new(feedtape_backend::infrastructure::repositories::UserRepository::new(pool.clone()));
-    let feed_repo = Arc::new(feedtape_backend::infrastructure::repositories::FeedRepository::new(pool.clone()));
-    let refresh_token_repo = Arc::new(feedtape_backend::infrastructure::repositories::RefreshTokenRepository::new(pool.clone()));
-    let usage_repo = Arc::new(feedtape_backend::infrastructure::repositories::UsageRepository::new(pool.clone()));
+    let user_repo =
+        Arc::new(feedtape_backend::infrastructure::repositories::UserRepository::new(pool.clone()));
+    let feed_repo =
+        Arc::new(feedtape_backend::infrastructure::repositories::FeedRepository::new(pool.clone()));
+    let feed_suggestions_repo = Arc::new(
+        feedtape_backend::infrastructure::repositories::HardcodedFeedSuggestionsRepository::new(),
+    );
+    let refresh_token_repo = Arc::new(
+        feedtape_backend::infrastructure::repositories::RefreshTokenRepository::new(pool.clone()),
+    );
+    let usage_repo = Arc::new(
+        feedtape_backend::infrastructure::repositories::UsageRepository::new(pool.clone()),
+    );
 
     // 2. Instantiate OAuth clients
     tracing::info!("Instantiating OAuth clients...");
-    let github_oauth_client = Arc::new(feedtape_backend::infrastructure::oauth::GitHubOAuthClient::new(
-        config.github_client_id.clone(),
-        config.github_client_secret.clone(),
-        config.github_redirect_uri.clone(),
-    ));
+    let github_oauth_client = Arc::new(
+        feedtape_backend::infrastructure::oauth::GitHubOAuthClient::new(
+            config.github_client_id.clone(),
+            config.github_client_secret.clone(),
+            config.github_redirect_uri.clone(),
+        ),
+    );
 
     // 3. Instantiate services (inject repositories and clients)
     tracing::info!("Instantiating services...");
@@ -99,25 +113,52 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         polly_client.clone(),
         config.tts_cache_enabled,
     ));
+    let feed_suggestions_service = Arc::new(
+        feedtape_backend::domain::feed_suggestions::FeedSuggestionsService::new(
+            feed_suggestions_repo,
+        ),
+    );
 
     // 4. Instantiate controllers (inject services)
     tracing::info!("Instantiating controllers...");
-    let auth_controller = Arc::new(feedtape_backend::controllers::auth::AuthController::new(auth_service.clone()));
+    let auth_controller = Arc::new(feedtape_backend::controllers::auth::AuthController::new(
+        auth_service.clone(),
+    ));
     let oauth_controller = Arc::new(feedtape_backend::controllers::oauth::OAuthController::new(
         github_oauth_client,
         user_repo.clone(),
         auth_service,
     ));
-    let feed_controller = Arc::new(feedtape_backend::controllers::feed::FeedController::new(feed_service));
-    let user_controller = Arc::new(feedtape_backend::controllers::user::UserController::new(user_service.clone()));
+    let feed_controller = Arc::new(feedtape_backend::controllers::feed::FeedController::new(
+        feed_service,
+    ));
+    let user_controller = Arc::new(feedtape_backend::controllers::user::UserController::new(
+        user_service.clone(),
+    ));
     let tts_controller = Arc::new(feedtape_backend::controllers::tts::TtsController::new(
         tts_service,
         user_service,
         usage_repo.clone(),
     ));
+    let feed_suggestions_controller = Arc::new(
+        feedtape_backend::controllers::feed_suggestions::FeedSuggestionsController::new(
+            feed_suggestions_service,
+        ),
+    );
 
     // Start HTTP server with all routes
-    start_http_server(pool, config, user_repo, auth_controller, oauth_controller, feed_controller, user_controller, tts_controller).await?;
+    start_http_server(
+        pool,
+        config,
+        user_repo,
+        auth_controller,
+        oauth_controller,
+        feed_controller,
+        feed_suggestions_controller,
+        user_controller,
+        tts_controller,
+    )
+    .await?;
 
     Ok(())
 }

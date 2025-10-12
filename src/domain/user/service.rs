@@ -1,12 +1,14 @@
-use crate::infrastructure::repositories::{UsageRecord, UsageRepository, UserRepository};
-use super::{LimitsDto, MeResponse, SubscriptionDto, UpdateSettingsDto, UsageDto, User, UserSettingsDto};
 use super::error::UserServiceError;
 use super::voice_mapping::get_voice_id;
+use super::{
+    LimitsDto, MeResponse, SubscriptionDto, UpdateSettingsDto, UsageDto, User, UserSettingsDto,
+};
+use crate::infrastructure::repositories::{UsageRecord, UsageRepository, UserRepository};
+use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
 use serde_json::json;
-use uuid::Uuid;
 use std::sync::Arc;
-use async_trait::async_trait;
+use uuid::Uuid;
 
 const CHARACTERS_PER_MINUTE: f32 = 1000.0;
 const FREE_TIER_CHARACTERS: i32 = 20000;
@@ -23,10 +25,7 @@ pub struct UserService {
 }
 
 impl UserService {
-    pub fn new(
-        user_repo: Arc<UserRepository>,
-        usage_repo: Arc<UsageRepository>,
-    ) -> Self {
+    pub fn new(user_repo: Arc<UserRepository>, usage_repo: Arc<UsageRepository>) -> Self {
         Self {
             user_repo,
             usage_repo,
@@ -91,7 +90,10 @@ impl UserService {
             .ok_or(UserServiceError::NotFound)
     }
 
-    async fn get_today_usage(&self, user_id: Uuid) -> Result<Option<UsageRecord>, UserServiceError> {
+    async fn get_today_usage(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Option<UsageRecord>, UserServiceError> {
         self.usage_repo
             .get_today_usage(user_id)
             .await
@@ -145,7 +147,8 @@ impl UserService {
             .unwrap_or("en")
             .to_string();
 
-        let (characters_limit, minutes_limit, max_feeds) = Self::calculate_limits(user.subscription_tier.clone());
+        let (characters_limit, minutes_limit, max_feeds) =
+            Self::calculate_limits(user.subscription_tier.clone());
 
         let characters_used_today = usage.map(|u| u.characters_used).unwrap_or(0);
         let minutes_used_today = characters_used_today as f32 / CHARACTERS_PER_MINUTE;
@@ -168,9 +171,7 @@ impl UserService {
                     characters_limit,
                     resets_at,
                 },
-                limits: LimitsDto {
-                    max_feeds,
-                },
+                limits: LimitsDto { max_feeds },
             },
         })
     }
