@@ -3,12 +3,11 @@ use crate::e2e::helpers;
 use helpers::{generate_test_jwt, TestContext};
 use hyper::StatusCode;
 use serde_json::json;
-use serial_test::serial;
+use test_context::test_context;
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_get_current_user_info() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_get_current_user_info(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -41,10 +40,9 @@ async fn it_should_get_current_user_info() {
     assert!(voice.starts_with("voice_"), "Voice should be a voice ID");
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_update_user_settings() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_update_user_settings(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -76,10 +74,9 @@ async fn it_should_update_user_settings() {
     );
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_update_partial_settings() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_update_partial_settings(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -111,10 +108,9 @@ async fn it_should_update_partial_settings() {
     assert_eq!(body["settings"]["language"], "en"); // Language remains at default
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_show_pro_user_subscription() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_show_pro_user_subscription(ctx: &TestContext) {
     let user = ctx
         .fixtures
         .create_pro_user("pro@example.com")
@@ -139,10 +135,9 @@ async fn it_should_show_pro_user_subscription() {
     assert!(max_feeds > 3, "Pro tier should allow more than 3 feeds");
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_show_usage_statistics() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_show_usage_statistics(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -169,10 +164,9 @@ async fn it_should_show_usage_statistics() {
     );
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_validate_language_settings() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_validate_language_settings(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -215,10 +209,9 @@ async fn it_should_validate_language_settings() {
     response.assert_status(StatusCode::BAD_REQUEST);
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_require_authentication_for_user_endpoints() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_require_authentication_for_user_endpoints(ctx: &TestContext) {
 
     // Try to get user info without auth
     let response = ctx.client.get("/api/me").await.unwrap();
@@ -240,10 +233,9 @@ async fn it_should_require_authentication_for_user_endpoints() {
     response.assert_status(StatusCode::UNAUTHORIZED);
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_validate_subscription_receipt() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_validate_subscription_receipt(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -266,10 +258,9 @@ async fn it_should_validate_subscription_receipt() {
     assert_eq!(response.status, StatusCode::NOT_FOUND);
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_reject_invalid_jwt() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_reject_invalid_jwt(ctx: &TestContext) {
     let invalid_token = "invalid.jwt.token";
 
     let response = ctx
@@ -281,10 +272,9 @@ async fn it_should_reject_invalid_jwt() {
     response.assert_status(StatusCode::UNAUTHORIZED);
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_reject_expired_jwt() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_reject_expired_jwt(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
 
     // Create an expired token

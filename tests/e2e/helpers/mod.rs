@@ -3,8 +3,9 @@ use axum::Router;
 use chrono::{DateTime, Utc};
 use feedtape_backend::infrastructure::config::{Config, Environment, LogFormat};
 use once_cell::sync::Lazy;
-use sqlx::{postgres::PgPoolOptions, PgPool};
+use sqlx::PgPool;
 use std::sync::Arc;
+use test_context::AsyncTestContext;
 use testcontainers::{clients::Cli, Container};
 use testcontainers_modules::postgres::Postgres;
 use tokio::net::TcpListener;
@@ -12,13 +13,41 @@ use uuid::Uuid;
 
 pub mod api_client;
 pub mod aws_mocks;
+pub mod db_pool;
 pub mod fixtures;
 
 use api_client::TestClient;
+use db_pool::{DatabasePool, PooledDatabase};
 use fixtures::TestFixtures;
 
 // Docker client for test containers
 static DOCKER: Lazy<Cli> = Lazy::new(Cli::default);
+
+// Shared PostgreSQL container for all tests
+static SHARED_CONTAINER: Lazy<SharedContainer> = Lazy::new(|| SharedContainer::new());
+
+// Global database pool
+static DB_POOL: Lazy<DatabasePool> = Lazy::new(|| DatabasePool::new(SHARED_CONTAINER.port));
+
+/// Shared container that lives for the duration of all tests
+struct SharedContainer {
+    _container: Container<'static, Postgres>,
+    port: u16,
+}
+
+impl SharedContainer {
+    fn new() -> Self {
+        let container = DOCKER.run(Postgres::default());
+        let port = container.get_host_port_ipv4(5432);
+
+        println!("🐳 Started shared PostgreSQL container on port {}", port);
+
+        Self {
+            _container: container,
+            port,
+        }
+    }
+}
 
 pub struct TestContext {
     pub client: TestClient,
@@ -26,81 +55,72 @@ pub struct TestContext {
     pub pool: PgPool,
     pub config: Config,
     pub fixtures: TestFixtures,
-    _container: Container<'static, Postgres>,
+    _db: PooledDatabase,
 }
 
-impl TestContext {
-    pub async fn new() -> Result<Self> {
-        // Start PostgreSQL container
-        let container = DOCKER.run(Postgres::default());
-        let db_port = container.get_host_port_ipv4(5432);
+impl AsyncTestContext for TestContext {
+    fn setup() -> impl std::future::Future<Output = Self> + Send {
+        async {
+            // Get a database from the shared pool
+            let pooled_db = DB_POOL
+                .get_database()
+                .await
+                .expect("Failed to get database from pool");
 
-        // Create database URL
-        let database_url = format!(
-            "postgresql://postgres:postgres@localhost:{}/postgres",
-            db_port
-        );
+            // Create test configuration
+            let config = Config {
+                database_url: pooled_db.database_url.clone(),
+                host: "127.0.0.1".to_string(),
+                port: 0, // Will be assigned by the OS
+                jwt_secret: "test-jwt-secret-key-for-testing-only".to_string(),
+                jwt_expiration_hours: 1,
+                refresh_token_expiration_days: 30,
+                aws_region: "us-east-1".to_string(),
+                environment: Environment::Development,
+                log_format: LogFormat::Pretty,
+                github_client_id: "test_github_client_id".to_string(),
+                github_client_secret: "test_github_client_secret".to_string(),
+                github_redirect_uri: "http://localhost:8080/auth/callback/github".to_string(),
+                tts_cache_enabled: false, // Disable cache in tests to avoid test pollution
+            };
 
-        // Create pool and run migrations
-        let pool = PgPoolOptions::new()
-            .max_connections(5)
-            .connect(&database_url)
-            .await?;
+            // Create app with mocked AWS
+            let app = create_app_with_mocked_aws(config.clone(), pooled_db.pool.clone())
+                .await
+                .expect("Failed to create app");
 
-        sqlx::migrate!("./migrations").run(&pool).await?;
+            // Start server
+            let listener = TcpListener::bind("127.0.0.1:0")
+                .await
+                .expect("Failed to bind listener");
+            let addr = listener.local_addr().expect("Failed to get local addr");
+            let base_url = format!("http://{}", addr);
 
-        // Create test configuration
-        let config = Config {
-            database_url: database_url.clone(),
-            host: "127.0.0.1".to_string(),
-            port: 0, // Will be assigned by the OS
-            jwt_secret: "test-jwt-secret-key-for-testing-only".to_string(),
-            jwt_expiration_hours: 1,
-            refresh_token_expiration_days: 30,
-            aws_region: "us-east-1".to_string(),
-            environment: Environment::Development,
-            log_format: LogFormat::Pretty,
-            github_client_id: "test_github_client_id".to_string(),
-            github_client_secret: "test_github_client_secret".to_string(),
-            github_redirect_uri: "http://localhost:8080/auth/callback/github".to_string(),
-            tts_cache_enabled: false, // Disable cache in tests to avoid test pollution
-        };
+            tokio::spawn(async move {
+                axum::serve(listener, app).await.unwrap();
+            });
 
-        // Create app with mocked AWS
-        let app = create_app_with_mocked_aws(config.clone(), pool.clone()).await?;
+            // Wait for server to be ready
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-        // Start server
-        let listener = TcpListener::bind("127.0.0.1:0").await?;
-        let addr = listener.local_addr()?;
-        let base_url = format!("http://{}", addr);
+            // Create test client and fixtures
+            let client = TestClient::new(&base_url);
+            let fixtures = TestFixtures::new(pooled_db.pool.clone());
 
-        tokio::spawn(async move {
-            axum::serve(listener, app).await.unwrap();
-        });
-
-        // Wait for server to be ready
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-
-        // Create test client and fixtures
-        let client = TestClient::new(&base_url);
-        let fixtures = TestFixtures::new(pool.clone());
-
-        Ok(Self {
-            client,
-            pool,
-            config,
-            fixtures,
-            _container: container,
-        })
+            Self {
+                client,
+                pool: pooled_db.pool.clone(),
+                config,
+                fixtures,
+                _db: pooled_db,
+            }
+        }
     }
 
-    #[allow(dead_code)]
-    pub async fn cleanup(&self) -> Result<()> {
-        // Clean all tables
-        sqlx::query("TRUNCATE TABLE feeds, users, refresh_tokens, usage_tracking CASCADE")
-            .execute(&self.pool)
-            .await?;
-        Ok(())
+    fn teardown(self) -> impl std::future::Future<Output = ()> + Send {
+        async {
+            // Database cleanup happens automatically via Drop on PooledDatabase
+        }
     }
 }
 

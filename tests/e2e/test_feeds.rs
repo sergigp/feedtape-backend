@@ -3,12 +3,11 @@ use crate::e2e::helpers;
 use helpers::{generate_test_jwt, TestContext};
 use hyper::StatusCode;
 use serde_json::json;
-use serial_test::serial;
+use test_context::test_context;
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_create_a_new_feed() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_create_a_new_feed(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -38,10 +37,9 @@ async fn it_should_create_a_new_feed() {
     assert_eq!(feed_count, 1);
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_list_user_feeds() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_list_user_feeds(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -95,10 +93,9 @@ async fn it_should_list_user_feeds() {
     }
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_update_feed_title() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_update_feed_title(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -132,10 +129,9 @@ async fn it_should_update_feed_title() {
     assert_eq!(feeds[0]["title"], "New Title");
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_delete_a_feed() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_delete_a_feed(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -158,10 +154,9 @@ async fn it_should_delete_a_feed() {
     assert_eq!(feed_count, 0);
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_prevent_duplicate_feed_urls() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_prevent_duplicate_feed_urls(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -193,10 +188,9 @@ async fn it_should_prevent_duplicate_feed_urls() {
         .assert_error_message("Feed URL already exists");
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_enforce_free_tier_feed_limit() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_enforce_free_tier_feed_limit(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -232,10 +226,9 @@ async fn it_should_enforce_free_tier_feed_limit() {
         .assert_error_message("Free tier allows maximum");
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_allow_pro_users_more_feeds() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_allow_pro_users_more_feeds(ctx: &TestContext) {
     let user = ctx
         .fixtures
         .create_pro_user("pro@example.com")
@@ -266,10 +259,9 @@ async fn it_should_allow_pro_users_more_feeds() {
     assert_eq!(feed_count, 5);
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_return_404_for_nonexistent_feed() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_return_404_for_nonexistent_feed(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -286,10 +278,9 @@ async fn it_should_return_404_for_nonexistent_feed() {
         .assert_error_message("Feed not found");
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_not_allow_access_to_other_users_feeds() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_not_allow_access_to_other_users_feeds(ctx: &TestContext) {
 
     let user1 = ctx.fixtures.create_user("user1@example.com").await.unwrap();
     let user2 = ctx.fixtures.create_user("user2@example.com").await.unwrap();
@@ -333,10 +324,9 @@ async fn it_should_not_allow_access_to_other_users_feeds() {
         .assert_error_message("Feed not found");
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_validate_feed_url_format() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_validate_feed_url_format(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -361,10 +351,9 @@ async fn it_should_validate_feed_url_format() {
     }
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_require_authentication_for_feeds() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_require_authentication_for_feeds(ctx: &TestContext) {
 
     // Try to list feeds without auth
     let response = ctx.client.get("/api/feeds").await.unwrap();
