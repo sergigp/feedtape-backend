@@ -21,10 +21,8 @@
       "Read(//private/tmp/**)",
       "Bash(gh pr diff:*)",
       "Bash(cat:*)",
-      "Bash(cargo doc:*)",
-      "WebFetch(domain:docs.rs)",
-      "Read(//Users/sergigonzalez/.cargo/registry/src/**)",
-      "Bash(time cargo test:*)"
+      "WebFetch(domain:platform.openai.com)",
+      "Bash(cargo doc:*)"
     ],
     "deny": [],
     "ask": []

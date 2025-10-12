@@ -33,6 +33,9 @@ jsonwebtoken = "9.2"
 aws-config = "1.1"
 aws-sdk-polly = "1.13"
 
+# OpenAI SDK
+async-openai = "0.24"
+
 # Language detection (only languages we support)
 lingua = { version = "1.6", default-features = false, features = ["english", "spanish", "french", "german", "italian", "portuguese"] }
 

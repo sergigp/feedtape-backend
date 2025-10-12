@@ -1,7 +1,7 @@
 use anyhow::Result;
 use axum::Router;
 use chrono::{DateTime, Utc};
-use feedtape_backend::infrastructure::config::{Config, Environment, LogFormat};
+use feedtape_backend::infrastructure::config::{Config, Environment, LogFormat, TtsProvider};
 use once_cell::sync::Lazy;
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -67,22 +67,26 @@ impl AsyncTestContext for TestContext {
                 .await
                 .expect("Failed to get database from pool");
 
-            // Create test configuration
-            let config = Config {
-                database_url: pooled_db.database_url.clone(),
-                host: "127.0.0.1".to_string(),
-                port: 0, // Will be assigned by the OS
-                jwt_secret: "test-jwt-secret-key-for-testing-only".to_string(),
-                jwt_expiration_hours: 1,
-                refresh_token_expiration_days: 30,
-                aws_region: "us-east-1".to_string(),
-                environment: Environment::Development,
-                log_format: LogFormat::Pretty,
-                github_client_id: "test_github_client_id".to_string(),
-                github_client_secret: "test_github_client_secret".to_string(),
-                github_redirect_uri: "http://localhost:8080/auth/callback/github".to_string(),
-                tts_cache_enabled: false, // Disable cache in tests to avoid test pollution
-            };
+        // Create test configuration
+        let config = Config {
+            database_url: pooled_db.database_url.clone(),
+            host: "127.0.0.1".to_string(),
+            port: 0, // Will be assigned by the OS
+            jwt_secret: "test-jwt-secret-key-for-testing-only".to_string(),
+            jwt_expiration_hours: 1,
+            refresh_token_expiration_days: 30,
+            aws_region: "us-east-1".to_string(),
+            environment: Environment::Development,
+            log_format: LogFormat::Pretty,
+            github_client_id: "test_github_client_id".to_string(),
+            github_client_secret: "test_github_client_secret".to_string(),
+            github_redirect_uri: "http://localhost:8080/auth/callback/github".to_string(),
+            tts_provider: TtsProvider::Polly, // Use Polly with mocked client in tests
+            tts_cache_enabled: false, // Disable cache in tests to avoid test pollution
+            openai_api_key: None, // Not needed for tests using Polly
+            openai_tts_model: "tts-1".to_string(),
+            openai_tts_voice: "alloy".to_string(),
+        };
 
             // Create app with mocked AWS
             let app = create_app_with_mocked_aws(config.clone(), pooled_db.pool.clone())
@@ -140,8 +144,8 @@ async fn create_app_with_mocked_aws(config: Config, pool: PgPool) -> Result<Rout
             auth::{auth_middleware, request_id_middleware},
             oauth::GitHubOAuthClient,
             repositories::{
-                FeedRepository, HardcodedFeedSuggestionsRepository, RefreshTokenRepository,
-                UsageRepository, UserRepository,
+                FeedRepository, HardcodedFeedSuggestionsRepository, PollyTtsRepository,
+                RefreshTokenRepository, UsageRepository, UserRepository,
             },
         },
     };
@@ -160,6 +164,7 @@ async fn create_app_with_mocked_aws(config: Config, pool: PgPool) -> Result<Rout
     let feed_suggestions_repo = Arc::new(HardcodedFeedSuggestionsRepository::new());
     let refresh_token_repo = Arc::new(RefreshTokenRepository::new(pool.clone()));
     let usage_repo = Arc::new(UsageRepository::new(pool.clone()));
+    let tts_repo = Arc::new(PollyTtsRepository::new(polly_client.clone()));
 
     // Instantiate OAuth clients
     let github_oauth_client = Arc::new(GitHubOAuthClient::new(
@@ -181,7 +186,7 @@ async fn create_app_with_mocked_aws(config: Config, pool: PgPool) -> Result<Rout
     let tts_service = Arc::new(TtsService::new(
         user_repo.clone(),
         usage_repo.clone(),
-        polly_client.clone(),
+        tts_repo,
         false, // Disable cache in tests
     ));
     let feed_suggestions_service = Arc::new(FeedSuggestionsService::new(feed_suggestions_repo));
