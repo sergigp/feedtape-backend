@@ -9,7 +9,9 @@ use aws_sdk_polly::{
 };
 use html2text::from_read;
 use lingua::{LanguageDetector, LanguageDetectorBuilder};
+use moka::future::Cache;
 use std::sync::Arc;
+use std::time::Duration;
 use uuid::Uuid;
 
 const CHARACTERS_PER_MINUTE: f32 = 1000.0;
@@ -47,7 +49,7 @@ impl TtsService {
                 Cache::builder()
                     .max_capacity(100)
                     .time_to_idle(Duration::from_secs(30 * 60)) // 30 minutes, refreshes on access
-                    .build()
+                    .build(),
             )
         } else {
             None
