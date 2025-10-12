@@ -1,6 +1,7 @@
-use feedtape_backend::infrastructure::config::{Config, LogFormat};
+use feedtape_backend::infrastructure::config::{Config, LogFormat, TtsProvider};
 use feedtape_backend::infrastructure::db::{check_connection, create_pool};
 use feedtape_backend::infrastructure::http::start_http_server;
+use feedtape_backend::infrastructure::repositories::TtsRepository;
 use std::sync::Arc;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -80,6 +81,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         feedtape_backend::infrastructure::repositories::UsageRepository::new(pool.clone()),
     );
 
+    // TTS Repository - select provider based on configuration
+    let tts_repo: Arc<dyn TtsRepository> = match config.tts_provider {
+        TtsProvider::OpenAI => {
+            tracing::info!("Initializing OpenAI TTS provider");
+
+            // Get API key from config
+            let api_key = config.openai_api_key.clone().ok_or_else(|| {
+                "OPENAI_API_KEY is required when TTS_PROVIDER=openai"
+            })?;
+
+            // Create OpenAI client
+            let openai_config = async_openai::config::OpenAIConfig::new()
+                .with_api_key(api_key);
+            let openai_client = Arc::new(async_openai::Client::with_config(openai_config));
+
+            tracing::info!(
+                model = %config.openai_tts_model,
+                voice = %config.openai_tts_voice,
+                "OpenAI TTS client initialized"
+            );
+
+            Arc::new(feedtape_backend::infrastructure::repositories::OpenAiTtsRepository::new(
+                openai_client,
+                config.openai_tts_model.clone(),
+                config.openai_tts_voice.clone(),
+            ))
+        }
+        TtsProvider::Polly => {
+            tracing::info!("Initializing AWS Polly TTS provider");
+            Arc::new(
+                feedtape_backend::infrastructure::repositories::PollyTtsRepository::new(polly_client.clone()),
+            )
+        }
+    };
+
     // 2. Instantiate OAuth clients
     tracing::info!("Instantiating OAuth clients...");
     let github_oauth_client = Arc::new(
@@ -110,7 +146,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tts_service = Arc::new(feedtape_backend::domain::tts::TtsService::new(
         user_repo.clone(),
         usage_repo.clone(),
-        polly_client.clone(),
+        tts_repo,
         config.tts_cache_enabled,
     ));
     let feed_suggestions_service = Arc::new(

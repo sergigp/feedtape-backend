@@ -16,8 +16,13 @@ pub struct Config {
     pub github_client_id: String,
     pub github_client_secret: String,
     pub github_redirect_uri: String,
-    // TTS Cache
+    // TTS Configuration
+    pub tts_provider: TtsProvider,
     pub tts_cache_enabled: bool,
+    // OpenAI TTS
+    pub openai_api_key: Option<String>,
+    pub openai_tts_model: String,
+    pub openai_tts_voice: String,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -32,6 +37,13 @@ pub enum Environment {
 pub enum LogFormat {
     Pretty,
     Json,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum TtsProvider {
+    OpenAI,
+    Polly,
 }
 
 impl Config {
@@ -69,11 +81,23 @@ impl Config {
             github_client_id: env::var("GITHUB_CLIENT_ID")?,
             github_client_secret: env::var("GITHUB_CLIENT_SECRET")?,
             github_redirect_uri: env::var("GITHUB_REDIRECT_URI")?,
+            tts_provider: env::var("TTS_PROVIDER")
+                .unwrap_or_else(|_| "openai".to_string())
+                .parse::<String>()
+                .map(|s| match s.to_lowercase().as_str() {
+                    "polly" => TtsProvider::Polly,
+                    _ => TtsProvider::OpenAI,
+                })?,
             tts_cache_enabled: env::var("TTS_CACHE_ENABLED")
                 .unwrap_or_else(|_| "false".to_string())
                 .parse::<String>()
                 .map(|s| s.to_lowercase() == "true")
                 .unwrap_or(false),
+            openai_api_key: env::var("OPENAI_API_KEY").ok(),
+            openai_tts_model: env::var("OPENAI_TTS_MODEL")
+                .unwrap_or_else(|_| "tts-1".to_string()),
+            openai_tts_voice: env::var("OPENAI_TTS_VOICE")
+                .unwrap_or_else(|_| "alloy".to_string()),
         };
 
         Ok(config)

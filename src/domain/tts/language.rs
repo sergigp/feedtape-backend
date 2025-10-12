@@ -73,36 +73,3 @@ pub fn detect_language(text: &str) -> LanguageCode {
     }
 }
 
-/// Get the appropriate Polly voice ID for a language and quality
-pub fn get_voice_for_language(language: LanguageCode) -> &'static str {
-    match language {
-        LanguageCode::English => "Joanna",
-        LanguageCode::Spanish => "Lupe",
-        LanguageCode::French => "Lea",
-        LanguageCode::German => "Vicki",
-        LanguageCode::Italian => "Bianca",
-        LanguageCode::Portuguese => "Ines",
-    }
-}
-
-/// Check if a voice supports neural engine
-pub fn is_voice_neural_compatible(voice: &str) -> bool {
-    // List of voices that support neural engine
-    // Based on AWS Polly documentation
-    const NEURAL_VOICES: &[&str] = &[
-        // English
-        "Joanna", "Matthew", "Ivy", "Kendra", "Kimberly", "Salli", "Joey", "Justin", "Kevin",
-        // Spanish
-        "Lupe", "Pedro", "Sergio", // French
-        "Lea", "Remi", // German
-        "Vicki", "Daniel", // Italian
-        "Bianca", "Adriano", // Portuguese
-        "Ines", "Camila", "Vitoria", "Thiago", // Japanese
-        "Takumi", "Kazuha", "Tomoko",  // Korean
-        "Seoyeon", // Mandarin Chinese
-        "Zhiyu",   // Arabic
-        "Hala", "Zayd",
-    ];
-
-    NEURAL_VOICES.contains(&voice)
-}
