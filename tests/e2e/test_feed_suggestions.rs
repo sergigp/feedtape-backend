@@ -2,13 +2,12 @@ use crate::e2e::helpers;
 
 use helpers::{generate_test_jwt, TestContext};
 use hyper::StatusCode;
-use serial_test::serial;
+use test_context::test_context;
 use std::collections::HashSet;
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_get_all_categories_with_suggestions() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_get_all_categories_with_suggestions(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -61,10 +60,9 @@ async fn it_should_get_all_categories_with_suggestions() {
     }
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_get_suggestions_by_single_category() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_get_suggestions_by_single_category(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -108,10 +106,9 @@ async fn it_should_get_suggestions_by_single_category() {
     }
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_get_suggestions_by_multiple_categories() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_get_suggestions_by_multiple_categories(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -156,10 +153,9 @@ async fn it_should_get_suggestions_by_multiple_categories() {
     );
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_return_empty_for_invalid_category_ids() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_return_empty_for_invalid_category_ids(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -184,10 +180,9 @@ async fn it_should_return_empty_for_invalid_category_ids() {
     );
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_require_authentication() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_require_authentication(ctx: &TestContext) {
 
     // Try without auth token
     let response = ctx
@@ -199,10 +194,9 @@ async fn it_should_require_authentication() {
     response.assert_status(StatusCode::UNAUTHORIZED);
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_return_categories_with_all_fields() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_return_categories_with_all_fields(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -250,10 +244,9 @@ async fn it_should_return_categories_with_all_fields() {
     }
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_sort_categories_alphabetically() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_sort_categories_alphabetically(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -284,10 +277,9 @@ async fn it_should_sort_categories_alphabetically() {
     );
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_allow_existing_users_to_browse_suggestions() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_allow_existing_users_to_browse_suggestions(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -326,10 +318,9 @@ async fn it_should_allow_existing_users_to_browse_suggestions() {
     );
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_return_consistent_suggestions_for_same_category() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_return_consistent_suggestions_for_same_category(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -381,10 +372,9 @@ async fn it_should_return_consistent_suggestions_for_same_category() {
     );
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_support_categories_alias_param() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_support_categories_alias_param(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -413,10 +403,9 @@ async fn it_should_support_categories_alias_param() {
     );
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_have_unique_urls_across_all_suggestions() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_have_unique_urls_across_all_suggestions(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 

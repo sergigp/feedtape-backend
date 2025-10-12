@@ -71,6 +71,8 @@ aws-smithy-mocks-experimental = "0.2"
 # Test utilities
 once_cell = "1.19"
 serial_test = "3.0"
+test-context = "0.3"
+parking_lot = "0.12"
 
 # HTTP client for testing
 hyper = { version = "1", features = ["full"] }

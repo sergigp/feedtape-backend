@@ -4,12 +4,11 @@ use chrono::Utc;
 use helpers::{api_client::ApiResponse, generate_test_jwt, TestContext};
 use hyper::StatusCode;
 use serde_json::json;
-use serial_test::serial;
+use test_context::test_context;
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_refresh_access_token() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_refresh_access_token(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
 
     // Create a refresh token
@@ -77,10 +76,9 @@ async fn it_should_refresh_access_token() {
     assert!(!new_token.is_empty());
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_reject_invalid_refresh_token() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_reject_invalid_refresh_token(ctx: &TestContext) {
 
     let response = ctx
         .client
@@ -98,10 +96,9 @@ async fn it_should_reject_invalid_refresh_token() {
         .assert_error_message("Invalid refresh token");
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_reject_expired_refresh_token() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_reject_expired_refresh_token(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
 
     // Create an expired refresh token
@@ -132,10 +129,9 @@ async fn it_should_reject_expired_refresh_token() {
         .assert_error_message("Refresh token expired");
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_logout_single_session() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_logout_single_session(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let _token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -206,10 +202,9 @@ async fn it_should_logout_single_session() {
     response.assert_status(StatusCode::OK);
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_logout_all_sessions() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_logout_all_sessions(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -263,10 +258,9 @@ async fn it_should_logout_all_sessions() {
     }
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_require_auth_for_logout_all() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_require_auth_for_logout_all(ctx: &TestContext) {
 
     let response = ctx
         .client
@@ -277,10 +271,9 @@ async fn it_should_require_auth_for_logout_all() {
     response.assert_status(StatusCode::UNAUTHORIZED);
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_validate_jwt_signature() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_validate_jwt_signature(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
 
     // Create JWT with wrong secret
@@ -295,10 +288,9 @@ async fn it_should_validate_jwt_signature() {
     response.assert_status(StatusCode::UNAUTHORIZED);
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_include_request_id_header() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_include_request_id_header(ctx: &TestContext) {
 
     let response = ctx.client.get("/health").await.unwrap();
 
@@ -310,10 +302,9 @@ async fn it_should_include_request_id_header() {
     assert!(!request_id.is_empty());
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_handle_malformed_jwt() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_handle_malformed_jwt(ctx: &TestContext) {
 
     let malformed_tokens = vec![
         "not.a.jwt",
@@ -329,10 +320,9 @@ async fn it_should_handle_malformed_jwt() {
     }
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_handle_missing_auth_header() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_handle_missing_auth_header(ctx: &TestContext) {
 
     // All protected endpoints should return 401 without auth
     let protected_endpoints = vec![
@@ -350,10 +340,9 @@ async fn it_should_handle_missing_auth_header() {
     }
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_validate_bearer_token_format() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_validate_bearer_token_format(ctx: &TestContext) {
 
     // Test various invalid Authorization header formats
     let invalid_headers = vec![
@@ -371,10 +360,9 @@ async fn it_should_validate_bearer_token_format() {
     }
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_handle_concurrent_refresh_requests() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_handle_concurrent_refresh_requests(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
 
     let refresh_token = "concurrent_refresh_token";
@@ -416,10 +404,9 @@ async fn it_should_handle_concurrent_refresh_requests() {
     assert!(success_count >= 1);
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_clean_expired_tokens_on_refresh() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_clean_expired_tokens_on_refresh(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
 
     // Create some expired tokens

@@ -3,12 +3,11 @@ use crate::e2e::helpers;
 use helpers::{generate_test_jwt, TestContext};
 use hyper::StatusCode;
 use serde_json::json;
-use serial_test::serial;
+use test_context::test_context;
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_synthesize_text_to_speech() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_synthesize_text_to_speech(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -42,10 +41,9 @@ async fn it_should_synthesize_text_to_speech() {
     }
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_use_custom_voice_settings() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_use_custom_voice_settings(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -72,10 +70,9 @@ async fn it_should_use_custom_voice_settings() {
     );
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_auto_detect_language() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_auto_detect_language(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -116,10 +113,9 @@ async fn it_should_auto_detect_language() {
     }
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_enforce_text_length_limits() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_enforce_text_length_limits(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -159,10 +155,9 @@ async fn it_should_enforce_text_length_limits() {
         .assert_error_message("Text too large");
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_enforce_daily_usage_limits() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_enforce_daily_usage_limits(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -222,10 +217,9 @@ async fn it_should_enforce_daily_usage_limits() {
     }
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_allow_higher_limits_for_pro_users() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_allow_higher_limits_for_pro_users(ctx: &TestContext) {
     let user = ctx
         .fixtures
         .create_pro_user("pro@example.com")
@@ -261,10 +255,9 @@ async fn it_should_allow_higher_limits_for_pro_users() {
     );
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_require_pro_for_neural_voices() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_require_pro_for_neural_voices(ctx: &TestContext) {
     let free_user = ctx.fixtures.create_user("free@example.com").await.unwrap();
     let pro_user = ctx
         .fixtures
@@ -318,10 +311,9 @@ async fn it_should_require_pro_for_neural_voices() {
     );
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_get_tts_usage_statistics() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_get_tts_usage_statistics(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -367,10 +359,9 @@ async fn it_should_get_tts_usage_statistics() {
     }
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_track_usage_history() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_track_usage_history(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -398,10 +389,9 @@ async fn it_should_track_usage_history() {
     }
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_accept_valid_requests() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_accept_valid_requests(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 
@@ -427,10 +417,9 @@ async fn it_should_accept_valid_requests() {
     );
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_require_authentication_for_tts() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_require_authentication_for_tts(ctx: &TestContext) {
 
     // Try to synthesize without auth
     let response = ctx
@@ -452,10 +441,9 @@ async fn it_should_require_authentication_for_tts() {
     response.assert_status(StatusCode::UNAUTHORIZED);
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_include_usage_remaining_header() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_include_usage_remaining_header(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
 

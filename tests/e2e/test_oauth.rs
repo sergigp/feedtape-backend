@@ -2,12 +2,11 @@ use crate::e2e::helpers;
 
 use helpers::TestContext;
 use hyper::StatusCode;
-use serial_test::serial;
+use test_context::test_context;
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_initiate_github_oauth() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_initiate_github_oauth(ctx: &TestContext) {
 
     let response = ctx.client.get("/auth/oauth/github").await.unwrap();
 
@@ -43,10 +42,9 @@ async fn it_should_initiate_github_oauth() {
     );
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_initiate_github_oauth_with_mobile_param() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_initiate_github_oauth_with_mobile_param(ctx: &TestContext) {
 
     let response = ctx
         .client
@@ -81,10 +79,9 @@ async fn it_should_initiate_github_oauth_with_mobile_param() {
     );
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_reject_callback_without_code() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_reject_callback_without_code(ctx: &TestContext) {
 
     // Try to access callback without code parameter
     let response = ctx.client.get("/auth/callback/github").await.unwrap();
@@ -99,10 +96,9 @@ async fn it_should_reject_callback_without_code() {
     );
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_reject_callback_without_state() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_reject_callback_without_state(ctx: &TestContext) {
 
     // Try to access callback with code but without state parameter
     let response = ctx

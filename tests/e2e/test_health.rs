@@ -2,12 +2,11 @@ use crate::e2e::helpers;
 
 use helpers::TestContext;
 use hyper::StatusCode;
-use serial_test::serial;
+use test_context::test_context;
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_return_ok_for_health_check() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_return_ok_for_health_check(ctx: &TestContext) {
 
     let response = ctx.client.get("/health").await.unwrap();
 
@@ -18,10 +17,9 @@ async fn it_should_return_ok_for_health_check() {
     assert_eq!(body, "OK");
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_return_ready_status() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_return_ready_status(ctx: &TestContext) {
 
     let response = ctx.client.get("/health/ready").await.unwrap();
 
@@ -35,10 +33,9 @@ async fn it_should_return_ready_status() {
     assert!(body.get("tts").is_some());
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_not_require_auth_for_health_checks() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_not_require_auth_for_health_checks(ctx: &TestContext) {
 
     // Both health endpoints should work without authentication
     let response = ctx.client.get("/health").await.unwrap();
@@ -48,10 +45,9 @@ async fn it_should_not_require_auth_for_health_checks() {
     response.assert_status(StatusCode::OK);
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_include_request_id_in_health_responses() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_include_request_id_in_health_responses(ctx: &TestContext) {
 
     let response = ctx.client.get("/health").await.unwrap();
     response.assert_header_exists("x-request-id");
@@ -60,10 +56,9 @@ async fn it_should_include_request_id_in_health_responses() {
     response.assert_header_exists("x-request-id");
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_handle_database_connectivity_check() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_handle_database_connectivity_check(ctx: &TestContext) {
 
     // The ready endpoint should verify database connection
     let response = ctx.client.get("/health/ready").await.unwrap();
@@ -77,10 +72,9 @@ async fn it_should_handle_database_connectivity_check() {
     assert_eq!(db_status, Some("connected"));
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_be_fast_health_check() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_be_fast_health_check(ctx: &TestContext) {
 
     let start = std::time::Instant::now();
     let response = ctx.client.get("/health").await.unwrap();
@@ -96,10 +90,9 @@ async fn it_should_be_fast_health_check() {
     );
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_handle_concurrent_health_checks() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_handle_concurrent_health_checks(ctx: &TestContext) {
 
     // Simulate multiple concurrent health checks
     let mut futures = Vec::new();
@@ -117,10 +110,9 @@ async fn it_should_handle_concurrent_health_checks() {
     }
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_return_service_details_in_ready() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_return_service_details_in_ready(ctx: &TestContext) {
 
     let response = ctx.client.get("/health/ready").await.unwrap();
     response.assert_status(StatusCode::OK);
@@ -142,10 +134,9 @@ async fn it_should_return_service_details_in_ready() {
     }
 }
 
+#[test_context(TestContext)]
 #[tokio::test]
-#[serial]
-async fn it_should_use_different_endpoints_for_liveness_and_readiness() {
-    let ctx = TestContext::new().await.unwrap();
+async fn it_should_use_different_endpoints_for_liveness_and_readiness(ctx: &TestContext) {
 
     // /health is for liveness (is the service running?)
     let liveness_response = ctx.client.get("/health").await.unwrap();

@@ -20,7 +20,11 @@
       "Bash(gh pr view:*)",
       "Read(//private/tmp/**)",
       "Bash(gh pr diff:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(cargo doc:*)",
+      "WebFetch(domain:docs.rs)",
+      "Read(//Users/sergigonzalez/.cargo/registry/src/**)",
+      "Bash(time cargo test:*)"
     ],
     "deny": [],
     "ask": []
