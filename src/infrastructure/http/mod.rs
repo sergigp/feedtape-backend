@@ -97,7 +97,7 @@ pub async fn start_http_server(
         )
         .route(
             "/api/feeds/:feedId",
-            axum::routing::put(FeedController::update_feed).delete(FeedController::delete_feed),
+            axum::routing::delete(FeedController::delete_feed),
         )
         .route(
             "/api/feeds/:feedId/last-read",

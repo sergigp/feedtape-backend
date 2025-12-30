@@ -6,7 +6,7 @@ use axum::{
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::domain::feed::{CreateFeedRequest, FeedResponse, UpdateFeedRequest, UpdateLastReadRequest};
+use crate::domain::feed::{CreateFeedRequest, FeedResponse, UpdateLastReadRequest};
 use crate::{
     domain::feed::{FeedService, FeedServiceApi},
     error::AppResult,
@@ -45,20 +45,6 @@ impl FeedController {
             .create_feed(auth_user.user_id, request)
             .await?;
         Ok(StatusCode::CREATED)
-    }
-
-    /// PUT /api/feeds/{feedId} - Update feed
-    pub async fn update_feed(
-        State(controller): State<Arc<FeedController>>,
-        Extension(auth_user): Extension<AuthUser>,
-        Path(feed_id): Path<Uuid>,
-        Json(request): Json<UpdateFeedRequest>,
-    ) -> AppResult<StatusCode> {
-        controller
-            .feed_service
-            .update_feed(auth_user.user_id, feed_id, request)
-            .await?;
-        Ok(StatusCode::NO_CONTENT)
     }
 
     /// DELETE /api/feeds/{feedId} - Delete feed

@@ -96,42 +96,6 @@ async fn it_should_list_user_feeds(ctx: &TestContext) {
 
 #[test_context(TestContext)]
 #[tokio::test]
-async fn it_should_update_feed_title(ctx: &TestContext) {
-    let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
-    let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
-
-    let feed = ctx
-        .fixtures
-        .create_feed(user.id, "https://blog.example.com/rss", Some("Old Title"))
-        .await
-        .unwrap();
-
-    let response = ctx
-        .client
-        .put_with_auth(
-            &format!("/api/feeds/{}", feed.id),
-            &json!({
-                "title": "New Title"
-            }),
-            &token,
-        )
-        .await
-        .unwrap();
-
-    response.assert_status(StatusCode::NO_CONTENT);
-
-    // Verify update persisted by listing feeds
-    let list_response = ctx
-        .client
-        .get_with_auth("/api/feeds", &token)
-        .await
-        .unwrap();
-    let feeds = list_response.body.as_ref().unwrap().as_array().unwrap();
-    assert_eq!(feeds[0]["title"], "New Title");
-}
-
-#[test_context(TestContext)]
-#[tokio::test]
 async fn it_should_delete_a_feed(ctx: &TestContext) {
     let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
     let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);

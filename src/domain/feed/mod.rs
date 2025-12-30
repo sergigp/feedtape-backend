@@ -30,13 +30,6 @@ pub struct CreateFeedRequest {
     pub title: String,
 }
 
-/// Request to update a feed
-#[derive(Debug, Serialize, Deserialize)]
-pub struct UpdateFeedRequest {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub title: Option<String>,
-}
-
 /// Request to update last read timestamp
 #[derive(Debug, Deserialize)]
 pub struct UpdateLastReadRequest {
