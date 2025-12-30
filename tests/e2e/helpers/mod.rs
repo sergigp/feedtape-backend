@@ -274,7 +274,11 @@ async fn create_app_with_mocked_aws(config: Config, pool: PgPool) -> Result<Rout
         )
         .route(
             "/api/feeds/:feedId",
-            axum::routing::put(FeedController::update_feed).delete(FeedController::delete_feed),
+            axum::routing::delete(FeedController::delete_feed),
+        )
+        .route(
+            "/api/feeds/:feedId/last-read",
+            axum::routing::patch(FeedController::update_last_read_at),
         )
         .with_state(feed_controller.clone())
         .layer(middleware::from_fn_with_state(

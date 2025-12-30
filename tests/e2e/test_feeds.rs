@@ -260,23 +260,6 @@ async fn it_should_not_allow_access_to_other_users_feeds(ctx: &TestContext) {
         .await
         .unwrap();
 
-    // User2 tries to update user1's feed
-    let response = ctx
-        .client
-        .put_with_auth(
-            &format!("/api/feeds/{}", feed.id),
-            &json!({
-                "title": "Hacked Title"
-            }),
-            &token2,
-        )
-        .await
-        .unwrap();
-
-    response
-        .assert_status(StatusCode::NOT_FOUND)
-        .assert_error_message("Feed not found");
-
     // User2 tries to delete user1's feed
     let response = ctx
         .client
