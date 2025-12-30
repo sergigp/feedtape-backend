@@ -243,9 +243,59 @@ cargo watch -x run
 
 ### Database Migrations
 
-Currently using a single `schema.sql` file for simplicity. For production, consider using a migration tool like:
-- `sqlx migrate`
-- `diesel`
+The project uses SQLx for database migrations with compile-time query verification.
+
+#### Install SQLx CLI (one-time setup)
+
+```bash
+cargo install sqlx-cli --no-default-features --features postgres --locked
+```
+
+#### Apply Migrations
+
+```bash
+# Run all pending migrations
+sqlx migrate run
+
+# Or with explicit DATABASE_URL
+DATABASE_URL=postgresql://feedtape:feedtape_dev_password@localhost:5432/feedtape sqlx migrate run
+```
+
+#### Fresh Database Setup
+
+If you need to wipe the database and reapply all migrations:
+
+```bash
+# Connect to PostgreSQL and drop/recreate schema
+psql postgresql://feedtape:feedtape_dev_password@localhost:5432/feedtape -c "
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
+GRANT ALL ON SCHEMA public TO feedtape;
+GRANT ALL ON SCHEMA public TO public;
+"
+
+# Apply all migrations from scratch
+sqlx migrate run
+```
+
+#### Create New Migration
+
+```bash
+# Create a new migration file
+sqlx migrate add <migration_name>
+
+# Example
+sqlx migrate add add_user_preferences
+```
+
+#### Check Migration Status
+
+```bash
+# Show which migrations have been applied
+sqlx migrate info
+```
+
+All migration files are located in the `migrations/` directory.
 
 ## 📖 API Documentation
 
