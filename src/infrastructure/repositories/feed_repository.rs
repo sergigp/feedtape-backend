@@ -3,6 +3,7 @@ use crate::{
     domain::feed::Feed,
     error::{AppError, AppResult},
 };
+use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -20,7 +21,7 @@ impl FeedRepository {
         let pool = self.pool.as_ref();
         let feeds = sqlx::query_as::<_, Feed>(
             r#"
-            SELECT id, user_id, url, title, created_at
+            SELECT id, user_id, url, title, created_at, last_read_at
             FROM feeds
             WHERE user_id = $1
             ORDER BY created_at DESC
@@ -38,7 +39,7 @@ impl FeedRepository {
         let pool = self.pool.as_ref();
         let feed = sqlx::query_as::<_, Feed>(
             r#"
-            SELECT id, user_id, url, title, created_at
+            SELECT id, user_id, url, title, created_at, last_read_at
             FROM feeds
             WHERE id = $1
             "#,
@@ -127,6 +128,28 @@ impl FeedRepository {
             "#,
         )
         .bind(title)
+        .bind(feed_id)
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Update a feed's last_read_at timestamp
+    pub async fn update_last_read_at(
+        &self,
+        feed_id: Uuid,
+        last_read_at: DateTime<Utc>,
+    ) -> AppResult<()> {
+        let pool = self.pool.as_ref();
+        sqlx::query(
+            r#"
+            UPDATE feeds
+            SET last_read_at = $1
+            WHERE id = $2
+            "#,
+        )
+        .bind(last_read_at)
         .bind(feed_id)
         .execute(pool)
         .await?;

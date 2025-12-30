@@ -10,4 +10,5 @@ pub struct Feed {
     pub url: String,
     pub title: Option<String>,
     pub created_at: DateTime<Utc>,
+    pub last_read_at: Option<DateTime<Utc>>,
 }
