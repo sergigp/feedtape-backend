@@ -24,7 +24,9 @@
       "Bash(cargo doc:*)",
       "WebFetch(domain:docs.rs)",
       "Read(//Users/sergigonzalez/.cargo/registry/src/**)",
-      "Bash(time cargo test:*)"
+      "Bash(time cargo test:*)",
+      "Bash(brew services:*)",
+      "Bash(brew uninstall:*)"
     ],
     "deny": [],
     "ask": []
