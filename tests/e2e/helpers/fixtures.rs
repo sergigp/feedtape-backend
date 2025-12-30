@@ -103,6 +103,7 @@ impl TestFixtures {
             url: url.to_string(),
             title: title.map(|s| s.to_string()),
             created_at: Utc::now(),
+            last_read_at: None,
         };
 
         sqlx::query(

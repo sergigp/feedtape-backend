@@ -47,20 +47,6 @@ impl TestClient {
     }
 
     #[allow(dead_code)]
-    pub async fn put<T: Serialize>(&self, path: &str, body: &T) -> Result<ApiResponse> {
-        self.request(Method::PUT, path, Some(body), None).await
-    }
-
-    pub async fn put_with_auth<T: Serialize>(
-        &self,
-        path: &str,
-        body: &T,
-        token: &str,
-    ) -> Result<ApiResponse> {
-        self.request(Method::PUT, path, Some(body), Some(token))
-            .await
-    }
-
     pub async fn patch<T: Serialize>(&self, path: &str, body: &T) -> Result<ApiResponse> {
         self.request(Method::PATCH, path, Some(body), None).await
     }

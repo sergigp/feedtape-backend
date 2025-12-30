@@ -20,7 +20,7 @@ impl FeedRepository {
         let pool = self.pool.as_ref();
         let feeds = sqlx::query_as::<_, Feed>(
             r#"
-            SELECT id, user_id, url, title, created_at
+            SELECT id, user_id, url, title, created_at, last_read_at
             FROM feeds
             WHERE user_id = $1
             ORDER BY created_at DESC
@@ -38,7 +38,7 @@ impl FeedRepository {
         let pool = self.pool.as_ref();
         let feed = sqlx::query_as::<_, Feed>(
             r#"
-            SELECT id, user_id, url, title, created_at
+            SELECT id, user_id, url, title, created_at, last_read_at
             FROM feeds
             WHERE id = $1
             "#,
@@ -116,18 +116,19 @@ impl FeedRepository {
         Ok(())
     }
 
-    /// Update a feed's title
-    pub async fn update_title(&self, feed_id: Uuid, title: Option<&str>) -> AppResult<()> {
+    /// Update a feed (title and last_read_at)
+    pub async fn update(&self, feed: &Feed) -> AppResult<()> {
         let pool = self.pool.as_ref();
         sqlx::query(
             r#"
             UPDATE feeds
-            SET title = $1
-            WHERE id = $2
+            SET title = $1, last_read_at = $2
+            WHERE id = $3
             "#,
         )
-        .bind(title)
-        .bind(feed_id)
+        .bind(&feed.title)
+        .bind(feed.last_read_at)
+        .bind(feed.id)
         .execute(pool)
         .await?;
 

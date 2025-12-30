@@ -1,5 +1,6 @@
 use crate::e2e::helpers;
 
+use chrono::{Duration, Utc};
 use helpers::{generate_test_jwt, TestContext};
 use hyper::StatusCode;
 use serde_json::json;
@@ -91,42 +92,6 @@ async fn it_should_list_user_feeds(ctx: &TestContext) {
             "Missing created_at field"
         );
     }
-}
-
-#[test_context(TestContext)]
-#[tokio::test]
-async fn it_should_update_feed_title(ctx: &TestContext) {
-    let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
-    let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
-
-    let feed = ctx
-        .fixtures
-        .create_feed(user.id, "https://blog.example.com/rss", Some("Old Title"))
-        .await
-        .unwrap();
-
-    let response = ctx
-        .client
-        .put_with_auth(
-            &format!("/api/feeds/{}", feed.id),
-            &json!({
-                "title": "New Title"
-            }),
-            &token,
-        )
-        .await
-        .unwrap();
-
-    response.assert_status(StatusCode::NO_CONTENT);
-
-    // Verify update persisted by listing feeds
-    let list_response = ctx
-        .client
-        .get_with_auth("/api/feeds", &token)
-        .await
-        .unwrap();
-    let feeds = list_response.body.as_ref().unwrap().as_array().unwrap();
-    assert_eq!(feeds[0]["title"], "New Title");
 }
 
 #[test_context(TestContext)]
@@ -295,23 +260,6 @@ async fn it_should_not_allow_access_to_other_users_feeds(ctx: &TestContext) {
         .await
         .unwrap();
 
-    // User2 tries to update user1's feed
-    let response = ctx
-        .client
-        .put_with_auth(
-            &format!("/api/feeds/{}", feed.id),
-            &json!({
-                "title": "Hacked Title"
-            }),
-            &token2,
-        )
-        .await
-        .unwrap();
-
-    response
-        .assert_status(StatusCode::NOT_FOUND)
-        .assert_error_message("Feed not found");
-
     // User2 tries to delete user1's feed
     let response = ctx
         .client
@@ -382,4 +330,182 @@ async fn it_should_require_authentication_for_feeds(ctx: &TestContext) {
         .await
         .unwrap();
     response.assert_status(StatusCode::UNAUTHORIZED);
+}
+
+#[test_context(TestContext)]
+#[tokio::test]
+async fn it_should_update_last_read_at(ctx: &TestContext) {
+    let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
+    let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
+
+    let feed = ctx
+        .fixtures
+        .create_feed(user.id, "https://blog.example.com/rss", Some("Test Feed"))
+        .await
+        .unwrap();
+
+    let last_read_at = Utc::now() - Duration::hours(1);
+
+    let response = ctx
+        .client
+        .patch_with_auth(
+            &format!("/api/feeds/{}/last-read", feed.id),
+            &json!({
+                "last_read_at": last_read_at.to_rfc3339()
+            }),
+            &token,
+        )
+        .await
+        .unwrap();
+
+    response.assert_status(StatusCode::NO_CONTENT);
+
+    // Verify update persisted by listing feeds
+    let list_response = ctx
+        .client
+        .get_with_auth("/api/feeds", &token)
+        .await
+        .unwrap();
+
+    let feeds = list_response.body.as_ref().unwrap().as_array().unwrap();
+    assert!(feeds[0]["last_read_at"].is_string(), "last_read_at should be present");
+}
+
+#[test_context(TestContext)]
+#[tokio::test]
+async fn it_should_reject_future_timestamp_for_last_read_at(ctx: &TestContext) {
+    let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
+    let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
+
+    let feed = ctx
+        .fixtures
+        .create_feed(user.id, "https://blog.example.com/rss", Some("Test Feed"))
+        .await
+        .unwrap();
+
+    let future_timestamp = Utc::now() + Duration::hours(1);
+
+    let response = ctx
+        .client
+        .patch_with_auth(
+            &format!("/api/feeds/{}/last-read", feed.id),
+            &json!({
+                "last_read_at": future_timestamp.to_rfc3339()
+            }),
+            &token,
+        )
+        .await
+        .unwrap();
+
+    response
+        .assert_status(StatusCode::BAD_REQUEST)
+        .assert_error_message("last_read_at cannot be in the future");
+}
+
+#[test_context(TestContext)]
+#[tokio::test]
+async fn it_should_return_404_when_updating_last_read_for_nonexistent_feed(ctx: &TestContext) {
+    let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
+    let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
+
+    let fake_id = uuid::Uuid::new_v4();
+    let last_read_at = Utc::now() - Duration::hours(1);
+
+    let response = ctx
+        .client
+        .patch_with_auth(
+            &format!("/api/feeds/{}/last-read", fake_id),
+            &json!({
+                "last_read_at": last_read_at.to_rfc3339()
+            }),
+            &token,
+        )
+        .await
+        .unwrap();
+
+    response
+        .assert_status(StatusCode::NOT_FOUND)
+        .assert_error_message("Feed not found");
+}
+
+#[test_context(TestContext)]
+#[tokio::test]
+async fn it_should_not_allow_updating_last_read_for_other_users_feed(ctx: &TestContext) {
+    let user1 = ctx.fixtures.create_user("user1@example.com").await.unwrap();
+    let user2 = ctx.fixtures.create_user("user2@example.com").await.unwrap();
+
+    let token2 = generate_test_jwt(&user2.id, &ctx.config.jwt_secret);
+
+    // User1 creates a feed
+    let feed = ctx
+        .fixtures
+        .create_feed(user1.id, "https://blog.example.com/rss", Some("User1 Feed"))
+        .await
+        .unwrap();
+
+    let last_read_at = Utc::now() - Duration::hours(1);
+
+    // User2 tries to update user1's feed last_read_at
+    let response = ctx
+        .client
+        .patch_with_auth(
+            &format!("/api/feeds/{}/last-read", feed.id),
+            &json!({
+                "last_read_at": last_read_at.to_rfc3339()
+            }),
+            &token2,
+        )
+        .await
+        .unwrap();
+
+    response
+        .assert_status(StatusCode::NOT_FOUND)
+        .assert_error_message("Feed not found");
+}
+
+#[test_context(TestContext)]
+#[tokio::test]
+async fn it_should_return_last_read_at_in_feed_list(ctx: &TestContext) {
+    let user = ctx.fixtures.create_user("user@example.com").await.unwrap();
+    let token = generate_test_jwt(&user.id, &ctx.config.jwt_secret);
+
+    // Create a feed
+    let feed = ctx
+        .fixtures
+        .create_feed(user.id, "https://blog.example.com/rss", Some("Test Feed"))
+        .await
+        .unwrap();
+
+    // Initially last_read_at should not be present (null values are skipped)
+    let list_response = ctx
+        .client
+        .get_with_auth("/api/feeds", &token)
+        .await
+        .unwrap();
+
+    let feeds = list_response.body.as_ref().unwrap().as_array().unwrap();
+    assert!(feeds[0].get("last_read_at").is_none(), "last_read_at should not be present when null");
+
+    // Update last_read_at
+    let last_read_at = Utc::now() - Duration::hours(1);
+    ctx.client
+        .patch_with_auth(
+            &format!("/api/feeds/{}/last-read", feed.id),
+            &json!({
+                "last_read_at": last_read_at.to_rfc3339()
+            }),
+            &token,
+        )
+        .await
+        .unwrap();
+
+    // Now last_read_at should be present
+    let list_response = ctx
+        .client
+        .get_with_auth("/api/feeds", &token)
+        .await
+        .unwrap();
+
+    let feeds = list_response.body.as_ref().unwrap().as_array().unwrap();
+    assert!(feeds[0]["last_read_at"].is_string(), "last_read_at should be present after update");
 }

@@ -1,8 +1,9 @@
 use super::error::FeedServiceError;
-use crate::domain::feed::{CreateFeedRequest, Feed, FeedResponse, UpdateFeedRequest};
+use crate::domain::feed::{CreateFeedRequest, Feed, FeedResponse};
 use crate::domain::user::{SubscriptionTier, User};
 use crate::infrastructure::repositories::{FeedRepository, UserRepository};
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -33,14 +34,14 @@ pub trait FeedServiceApi: Send + Sync {
         request: CreateFeedRequest,
     ) -> Result<(), FeedServiceError>;
 
-    async fn update_feed(
+    async fn delete_feed(&self, user_id: Uuid, feed_id: Uuid) -> Result<(), FeedServiceError>;
+
+    async fn update_last_read_at(
         &self,
         user_id: Uuid,
         feed_id: Uuid,
-        request: UpdateFeedRequest,
+        last_read_at: DateTime<Utc>,
     ) -> Result<(), FeedServiceError>;
-
-    async fn delete_feed(&self, user_id: Uuid, feed_id: Uuid) -> Result<(), FeedServiceError>;
 }
 
 #[async_trait]
@@ -83,27 +84,30 @@ impl FeedServiceApi for FeedService {
         Ok(())
     }
 
-    async fn update_feed(
-        &self,
-        user_id: Uuid,
-        feed_id: Uuid,
-        request: UpdateFeedRequest,
-    ) -> Result<(), FeedServiceError> {
+    async fn delete_feed(&self, user_id: Uuid, feed_id: Uuid) -> Result<(), FeedServiceError> {
         self.verify_feed_ownership(feed_id, user_id).await?;
 
         self.feed_repo
-            .update_title(feed_id, request.title.as_deref())
+            .delete(feed_id)
             .await
             .map_err(|e| FeedServiceError::Dependency(e.to_string()))?;
 
         Ok(())
     }
 
-    async fn delete_feed(&self, user_id: Uuid, feed_id: Uuid) -> Result<(), FeedServiceError> {
-        self.verify_feed_ownership(feed_id, user_id).await?;
+    async fn update_last_read_at(
+        &self,
+        user_id: Uuid,
+        feed_id: Uuid,
+        last_read_at: DateTime<Utc>,
+    ) -> Result<(), FeedServiceError> {
+        let mut feed = self.verify_feed_ownership(feed_id, user_id).await?;
+
+        feed.update_last_read_at(last_read_at)
+            .map_err(|e| FeedServiceError::Invalid(e))?;
 
         self.feed_repo
-            .delete(feed_id)
+            .update(&feed)
             .await
             .map_err(|e| FeedServiceError::Dependency(e.to_string()))?;
 
