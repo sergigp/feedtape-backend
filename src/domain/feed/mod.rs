@@ -18,8 +18,6 @@ pub struct FeedResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     pub created_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_read_at: Option<DateTime<Utc>>,
 }
 
 /// Request to create a new feed
@@ -30,12 +28,6 @@ pub struct CreateFeedRequest {
     pub title: String,
 }
 
-/// Request to update last read timestamp
-#[derive(Debug, Deserialize)]
-pub struct UpdateLastReadRequest {
-    pub last_read_at: DateTime<Utc>,
-}
-
 impl From<Feed> for FeedResponse {
     fn from(feed: Feed) -> Self {
         Self {
@@ -43,7 +35,6 @@ impl From<Feed> for FeedResponse {
             url: feed.url,
             title: feed.title,
             created_at: feed.created_at,
-            last_read_at: feed.last_read_at,
         }
     }
 }
