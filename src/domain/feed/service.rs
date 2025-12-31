@@ -3,7 +3,6 @@ use crate::domain::feed::{CreateFeedRequest, Feed, FeedResponse};
 use crate::domain::user::{SubscriptionTier, User};
 use crate::infrastructure::repositories::{FeedRepository, UserRepository};
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -35,13 +34,6 @@ pub trait FeedServiceApi: Send + Sync {
     ) -> Result<(), FeedServiceError>;
 
     async fn delete_feed(&self, user_id: Uuid, feed_id: Uuid) -> Result<(), FeedServiceError>;
-
-    async fn update_last_read_at(
-        &self,
-        user_id: Uuid,
-        feed_id: Uuid,
-        last_read_at: DateTime<Utc>,
-    ) -> Result<(), FeedServiceError>;
 }
 
 #[async_trait]
@@ -89,25 +81,6 @@ impl FeedServiceApi for FeedService {
 
         self.feed_repo
             .delete(feed_id)
-            .await
-            .map_err(|e| FeedServiceError::Dependency(e.to_string()))?;
-
-        Ok(())
-    }
-
-    async fn update_last_read_at(
-        &self,
-        user_id: Uuid,
-        feed_id: Uuid,
-        last_read_at: DateTime<Utc>,
-    ) -> Result<(), FeedServiceError> {
-        let mut feed = self.verify_feed_ownership(feed_id, user_id).await?;
-
-        feed.update_last_read_at(last_read_at)
-            .map_err(|e| FeedServiceError::Invalid(e))?;
-
-        self.feed_repo
-            .update(&feed)
             .await
             .map_err(|e| FeedServiceError::Dependency(e.to_string()))?;
 
